@@ -15,13 +15,15 @@ const (
 		`<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" ` +
 		`"http://www.apple.com/DTDs/PropertyList-1.0.dtd">` + "\n" +
 		`<plist version="1.0">` + "\n<dict>\n"
-	plistEpilogue    = "</dict>\n</plist>\n"
-	bundleFieldWidth = 11
+	plistEpilogue = "</dict>\n</plist>\n"
+	// Floor, not the width. The column grows to fit the longest label a plan
+	// actually renders, so a slug never collides with its value.
+	bundleFieldMinWidth = 11
 )
 
 var (
 	bundleHeadingStyle = lipgloss.NewStyle().Bold(true)
-	bundleLabelStyle   = lipgloss.NewStyle().Faint(true).Width(bundleFieldWidth)
+	bundleLabelStyle   = lipgloss.NewStyle().Faint(true)
 )
 
 // bundleInfoPlist names the app the window belongs to, not just the wrapper.
@@ -128,25 +130,49 @@ func xmlEscape(value string) string {
 	return replacer.Replace(value)
 }
 
+// Sized from the labels this plan renders: a fixed width equal to the longest
+// known slug leaves no separator, which `underwriter` at 11 exposed.
+func bundleLabelWidth(plan bundlePlan) int {
+	labels := []string{"icon"}
+	for _, item := range plan.Items {
+		labels = append(labels, item.Role)
+	}
+	if len(plan.Stale) > 0 {
+		labels = append(labels, "stale")
+	}
+	if plan.staleLauncher() {
+		labels = append(labels, "warning")
+	}
+	width := bundleFieldMinWidth
+	for _, label := range labels {
+		// Plus one, because the column is the separator too.
+		if fitted := lipgloss.Width(label) + 1; fitted > width {
+			width = fitted
+		}
+	}
+	return width
+}
+
 // renderBundlePlan is the operator's half of `bundles --dry-run`. Checking
 // where seven apps land reads better as a list than as JSON. See docs/aterm.md.
 func renderBundlePlan(writer io.Writer, plan bundlePlan) error {
 	lines := &strings.Builder{}
+	labelStyle := bundleLabelStyle.Width(bundleLabelWidth(plan))
 	fmt.Fprintf(lines, "%s\n", bundleHeadingStyle.Render(plan.Output))
 	icon := plan.Icon
 	if icon == "" {
 		icon = "none, the system app icon"
 	}
-	fmt.Fprintf(lines, "  %s%s\n", bundleLabelStyle.Render("icon"), icon)
+	fmt.Fprintf(lines, "  %s%s\n", labelStyle.Render("icon"), icon)
 	for _, item := range plan.Items {
-		fmt.Fprintf(lines, "  %s%s\n", bundleLabelStyle.Render(item.Role), item.Name)
+		fmt.Fprintf(lines, "  %s%s\n", labelStyle.Render(item.Role), item.Name)
 	}
 	for _, path := range plan.Stale {
-		fmt.Fprintf(lines, "  %s%s\n", bundleLabelStyle.Render("stale"), filepath.Base(path))
+		fmt.Fprintf(lines, "  %s%s\n", labelStyle.Render("stale"), filepath.Base(path))
 	}
 	if plan.staleLauncher() {
 		fmt.Fprintf(lines, "  %s%s (%s), not this %s build\n",
-			bundleLabelStyle.Render("warning"), plan.Launcher, plan.LauncherBuild, plan.Build)
+			labelStyle.Render("warning"), plan.Launcher, plan.LauncherBuild, plan.Build)
 	}
 	_, err := io.WriteString(writer, lines.String())
 	return err

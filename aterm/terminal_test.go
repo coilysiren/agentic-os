@@ -93,3 +93,30 @@ func TestBundleTerminalPrefersTheRolesInstalledApp(t *testing.T) {
 		t.Fatalf("a role with no installed app should fall back, got %q", got)
 	}
 }
+
+// A window launched from a seat bundle exports that bundle's own kitty as
+// ATERM_TERMINAL_BIN, so the plan bakes the resolved target instead of it.
+func TestResolveTerminalTargetLeavesTheGeneratingBundleBehind(t *testing.T) {
+	root := t.TempDir()
+	app := filepath.Join(root, "kitty.app", "Contents", "MacOS")
+	seat := filepath.Join(root, "Evie :: Applied Scientist.app", "Contents", "MacOS")
+	for _, dir := range []string{app, seat} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatalf("make %s: %v", dir, err)
+		}
+	}
+	real := machOFixture(t, app, bundleTerminalName)
+	link := filepath.Join(seat, bundleTerminalName)
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatalf("link the seat terminal: %v", err)
+	}
+	// Resolving the seat's own symlink is what keeps one bundle out of the
+	// other seven; the generating seat's path must not survive.
+	got, err := resolveTerminalTarget(link)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if got != real {
+		t.Fatalf("resolved %q, want the app %q", got, real)
+	}
+}

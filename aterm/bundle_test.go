@@ -557,3 +557,90 @@ func TestGeneratedLauncherCarriesNoVersionPinnedPath(t *testing.T) {
 		t.Fatalf("the launcher baked a version-pinned path:\n%s", launcher)
 	}
 }
+
+// A label the width of the column leaves no separator, so the slug runs into
+// the name it labels. `underwriter` at exactly 11 was the first to reach it.
+func TestRenderBundlePlanSeparatesALongSlugFromItsName(t *testing.T) {
+	for _, role := range []string{"underwriter", "a-considerably-longer-slug"} {
+		plan := bundlePlan{
+			Output: "/tmp",
+			Items: []bundleItem{{
+				Role: role,
+				Name: "Cassandra // AI Underwriter",
+			}},
+		}
+		rendered := &strings.Builder{}
+		if err := renderBundlePlan(rendered, plan); err != nil {
+			t.Fatalf("render: %v", err)
+		}
+		if strings.Contains(rendered.String(), role+"Cassandra") {
+			t.Fatalf("%q abuts its name with no separator:\n%s", role, rendered)
+		}
+		if !strings.Contains(rendered.String(), role+" ") {
+			t.Fatalf("%q should be followed by a separator:\n%s", role, rendered)
+		}
+	}
+}
+
+// Every label shares one column, so a long role must not leave the fixed
+// labels flush against their values either.
+func TestRenderBundlePlanKeepsEveryLabelInOneColumn(t *testing.T) {
+	plan := bundlePlan{
+		Output: "/tmp",
+		Items:  []bundleItem{{Role: "underwriter", Name: "Cassandra // AI Underwriter"}},
+		Stale:  []string{"/tmp/Rex :: Retired.app"},
+	}
+	rendered := &strings.Builder{}
+	if err := renderBundlePlan(rendered, plan); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	width := bundleLabelWidth(plan)
+	if width <= len("underwriter") {
+		t.Fatalf("column %d cannot separate an 11-character slug", width)
+	}
+	for _, line := range strings.Split(strings.TrimSpace(rendered.String()), "\n")[1:] {
+		body := strings.TrimPrefix(line, "  ")
+		if len(body) > width && body[width-1] != ' ' {
+			t.Fatalf("label column is not clear on %q", line)
+		}
+	}
+}
+
+// A session shadow is reaped, so baking one of its directories into a launcher
+// that outlives the session leaves a dead entry. agentic-os#7083
+func TestBakedPathDropsASessionShadowEntry(t *testing.T) {
+	root := t.TempDir()
+	shadow := filepath.Join(root, "aos", "native", "zz99", "home", ".local", "bin")
+	durable := filepath.Join(root, "durable", "bin")
+	for _, dir := range []string{shadow, durable} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatalf("make %s: %v", dir, err)
+		}
+	}
+	// Both directories exist, so only the shadow rule can tell them apart.
+	got := livePathEntries(strings.Join([]string{shadow, durable}, string(filepath.ListSeparator)))
+	if got != durable {
+		t.Fatalf("baked %q, want only the durable %q", got, durable)
+	}
+}
+
+// The shadow of the seat running the generator is named in its own environment,
+// and the marker alone would miss a root that does not carry it.
+func TestBakedPathDropsTheDeclaredSessionRoot(t *testing.T) {
+	root := t.TempDir()
+	shadow := filepath.Join(root, "session-root", "bin")
+	durable := filepath.Join(root, "durable", "bin")
+	for _, dir := range []string{shadow, durable} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatalf("make %s: %v", dir, err)
+		}
+	}
+	if got := livePathEntries(shadow); got != shadow {
+		t.Fatalf("without the declared root the entry should survive, got %q", got)
+	}
+	t.Setenv(nativeSessionRootEnv, filepath.Join(root, "session-root"))
+	got := livePathEntries(strings.Join([]string{shadow, durable}, string(filepath.ListSeparator)))
+	if got != durable {
+		t.Fatalf("baked %q, want only the durable %q", got, durable)
+	}
+}

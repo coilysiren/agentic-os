@@ -292,7 +292,9 @@ func buildBundlePlan(ctx context.Context, deps commandDeps, cmd *cli.Command) (b
 			ATermBin:         launcher,
 			AOSBin:           aos,
 			AgentComposeBin:  agentCompose,
-			TerminalBin:      terminal,
+			// The resolved target, not the caller's path: a window launched
+			// from a bundle passes its own, baking a cross-bundle dependency.
+			TerminalBin: terminalTarget,
 		}
 		plan.Items = append(plan.Items, bundleItem{
 			Role:       spec.Role,
@@ -346,7 +348,7 @@ func livePathEntries(value string) string {
 	seen := make(map[string]bool)
 	for _, entry := range filepath.SplitList(value) {
 		entry = strings.TrimSpace(entry)
-		if entry == "" {
+		if entry == "" || isShadowEntry(entry) {
 			continue
 		}
 		// Rewrite before the dedup, so two Cellar versions of one formula
@@ -362,6 +364,24 @@ func livePathEntries(value string) string {
 		kept = append(kept, entry)
 	}
 	return strings.Join(kept, string(filepath.ListSeparator))
+}
+
+// A per-session shadow is reaped, so an entry under one dies with the session
+// that wrote the bundle. The marker catches another seat's shadow too.
+const nativeShadowMarker = "/aos/native/"
+
+func isShadowEntry(entry string) bool {
+	slashed := filepath.ToSlash(entry)
+	if strings.Contains(slashed, nativeShadowMarker) {
+		return true
+	}
+	for _, key := range []string{nativeSessionRootEnv, nativeSessionProjectsEnv} {
+		root := strings.TrimSpace(os.Getenv(key))
+		if root != "" && strings.HasPrefix(slashed, filepath.ToSlash(root)) {
+			return true
+		}
+	}
+	return false
 }
 
 // stableBrewEntry trades a versioned Cellar path for the opt symlink Homebrew
