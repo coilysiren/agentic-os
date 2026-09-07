@@ -54,7 +54,7 @@ you, and it is available precisely when you are frustrated.
 
 The same evening the type shipped, a comment cap forced explanatory prose out of
 two configuration files. The obvious destination doc was at exactly its line
-cap, and `docs/` was at its count cap. `guides/` had free slots. Putting
+cap, and `docs/` was at its count cap. `guides/` would have taken it. Putting
 configuration commentary there would have satisfied every validator and been
 wrong, because nobody reads it in order and nobody is doing anything while they
 read it. The prose went onto the tracker record instead, and the shelf stayed
@@ -83,19 +83,19 @@ If nothing lifts out and it is still over, the walkthrough is covering two
 tasks. Split it by task rather than by length, and accept that both halves cost
 a slot on a deliberately scarce shelf.
 
-## Being scarce is the point
+## Nothing caps how many you have
 
-The count cap is low on purpose, and low relative to the docs count rather than
-in absolute terms.
+There was a count cap and it was removed on purpose. A repository can need many
+walkthroughs or none, and a number could not tell which.
 
-If guides outnumber reference pages, something has gone wrong upstream: either
-the reference set has been hollowed out into narration, or tasks are being
-documented that nobody performs. A repository with six guides is a repository
-claiming six things are worth walking somebody through end to end, and most
-repositories do not have six.
+So nothing external stops guides proliferating, and the test at the top of this
+page is what does. A page without a reader doing something in order is not a
+guide, and putting it in `guides/` does not make it one. The size caps still
+bind, and so does the flat-directory rule.
 
-Treat a full guides shelf the way you would treat a full docs shelf. It is a
-signal to merge or retire, never a reason to raise a cap.
+The failure to watch for is a `guides/` directory that has quietly become a
+second `docs/` with longer pages. If you cannot say who reads each one and what
+they are doing while they read it, that is what you have.
 
 ## Cross-linking out
 
