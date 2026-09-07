@@ -17,6 +17,8 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
+from agentic_os import shared_ssl_context
+
 
 DEFAULT_BASE_URL = "http://teable:3000/api"
 
@@ -78,7 +80,9 @@ class TeableAPI:
             headers["Content-Type"] = "application/json"
         request = urllib.request.Request(url, data=data, headers=headers, method=method)
         try:
-            with urllib.request.urlopen(request) as response:  # noqa: S310 - operator-supplied base
+            with urllib.request.urlopen(  # noqa: S310 - operator-supplied base
+                request, context=shared_ssl_context()
+            ) as response:
                 raw = response.read()
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", "replace").strip()

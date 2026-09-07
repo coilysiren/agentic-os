@@ -24,6 +24,8 @@ import sys
 import urllib.request
 from pathlib import Path
 
+from agentic_os import shared_ssl_context
+
 FORGEJO_BASE = "https://forgejo.coilysiren.me/api/v1"
 OWNER = "coilyco-flight-deck"
 TELEGRAM_DEFAULTS_PATH = (
@@ -137,7 +139,9 @@ def put_secret(token: str, repo_slug: str, name: str, value: str) -> None:
             "Content-Type": "application/json",
         },
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
+    with urllib.request.urlopen(
+        request, timeout=30, context=shared_ssl_context()
+    ) as response:
         response.read()
 
 

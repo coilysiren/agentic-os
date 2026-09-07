@@ -18,6 +18,8 @@ import urllib.request
 
 import boto3
 
+from agentic_os import shared_ssl_context
+
 FORGEJO_API = "https://forgejo.coilysiren.me/api/v1"
 REGISTRY_URL = "https://forgejo.coilysiren.me/v2/"
 BOT_USER = "coilyco-ops"
@@ -36,7 +38,9 @@ def api(method: str, path: str, auth: str, body: dict | None = None) -> tuple[in
         headers={"Authorization": auth, "Content-Type": "application/json"},
     )
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
+        with urllib.request.urlopen(
+            request, timeout=30, context=shared_ssl_context()
+        ) as response:
             raw = response.read()
             return response.status, json.loads(raw) if raw else None
     except urllib.error.HTTPError as error:
@@ -52,7 +56,9 @@ def verify_registry(token: str) -> None:
         headers={"Authorization": f"Basic {basic}"},
     )
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
+        with urllib.request.urlopen(
+            request, timeout=30, context=shared_ssl_context()
+        ) as response:
             if response.status != 200:
                 raise SystemExit(f"registry verification returned HTTP {response.status}")
     except urllib.error.HTTPError as error:

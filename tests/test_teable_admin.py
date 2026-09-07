@@ -36,7 +36,7 @@ def _install(
 ) -> tuple[admin.TeableAPI, list[urllib.request.Request]]:
     calls: list[urllib.request.Request] = []
 
-    def fake_urlopen(request: urllib.request.Request) -> FakeResponse:
+    def fake_urlopen(request: urllib.request.Request, **_: object) -> FakeResponse:
         calls.append(request)
         return handler(request)
 
@@ -161,7 +161,7 @@ def test_mismatches_names_both_absent_and_differing_properties():
 @pytest.mark.parametrize("verb", sorted(admin.REFUSALS))
 def test_a_refused_verb_names_its_defect_and_reaches_no_upstream(verb, monkeypatch, capsys):
     """Absence reads as unimplemented as easily as refused, so each one speaks."""
-    def explode(_request):  # pragma: no cover - reaching this is the failure
+    def explode(_request, **_kwargs):  # pragma: no cover - reaching this is the failure
         raise AssertionError("a refused verb reached the network")
 
     monkeypatch.setattr(admin.urllib.request, "urlopen", explode)

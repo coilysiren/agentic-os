@@ -73,6 +73,10 @@ Major shipped capabilities, not files.
 - [AGENTS inventory](agents-context-inventory.md) - fleet corpus and clipping candidates.
 - [Repository residency](repo-layout.md) - Agent Compose native-workspace adapter and status tracking.
 - [Catalog caps reference](catalog-caps-reference.md) - generated numeric caps for validators.
+- [TLS trust-store fallback](../.agents/skills/tooling-aosguard/references/tls-trust-store.md) -
+  operator verbs and repo modules load a system CA bundle when the interpreter
+  ships without one, instead of failing every HTTPS call closed with an error
+  that reads like a bad endpoint. Verification is never weakened.
 - [Narrative guides shelf](documentation-bands.md) - `guides/*.md` as a second
   structural documentation type beside `docs/*.md`, with its own roomier size
   caps and a scarce count, so an end-to-end walkthrough has somewhere legal to

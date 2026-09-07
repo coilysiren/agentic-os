@@ -10,12 +10,42 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import ssl
 import sys
 import urllib.error
 import urllib.request
 
 API = "https://api.netlify.com/api/v1"
 TIMEOUT = 30
+# Mirrors the fallback in agentic_os: an isolated `python3 -I` has no package
+# to import. See tooling-aosguard references/tls-trust-store.md.
+CA_BUNDLE_CANDIDATES = (
+    "/etc/ssl/cert.pem",
+    "/etc/ssl/certs/ca-certificates.crt",
+    "/etc/pki/tls/certs/ca-bundle.crt",
+    "/etc/ssl/ca-bundle.pem",
+    "/opt/homebrew/etc/ca-certificates/cert.pem",
+    "/usr/local/etc/ca-certificates/cert.pem",
+)
+
+
+def _ssl_context() -> ssl.SSLContext:
+    """A verifying context, repaired from disk when the interpreter has none.
+
+    Never weakened: an unrepairable context is returned as-is so the call
+    still fails closed, and the handler below names the local cause.
+    """
+    context = ssl.create_default_context()
+    if context.get_ca_certs():
+        return context
+    for candidate in CA_BUNDLE_CANDIDATES:
+        try:
+            context.load_verify_locations(cafile=candidate)
+        except OSError:
+            continue
+        if context.get_ca_certs():
+            return context
+    return context
 
 
 def _request(method: str, path: str, token: str, payload: dict | None = None) -> dict:
@@ -30,7 +60,9 @@ def _request(method: str, path: str, token: str, payload: dict | None = None) ->
             "User-Agent": "aosguard-netlify",
         },
     )
-    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+    with urllib.request.urlopen(
+        request, timeout=TIMEOUT, context=_ssl_context()
+    ) as response:
         return json.load(response)
 
 
@@ -106,4 +138,13 @@ if __name__ == "__main__":
     except urllib.error.URLError as error:
         # A traceback here reads as a script bug rather than an unreachable API.
         print(f"netlify: cannot reach {API}: {error.reason}", file=sys.stderr)
+        if not _ssl_context().get_ca_certs():
+            print(
+                f"netlify: {sys.executable} has an empty CA trust store and no "
+                f"system bundle was found. This is a local trust problem, not "
+                f"a bad endpoint or credential. Run the python.org 'Install "
+                f"Certificates.command' for this interpreter, or point "
+                f"SSL_CERT_FILE at a bundle.",
+                file=sys.stderr,
+            )
         raise SystemExit(1) from error

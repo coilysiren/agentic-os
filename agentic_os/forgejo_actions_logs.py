@@ -13,6 +13,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
+
+from agentic_os import shared_ssl_context
 from collections.abc import Mapping
 from typing import Any
 
@@ -202,7 +204,7 @@ class ForgejoAPI:
         if headers:
             request_headers.update(headers)
         request = urllib.request.Request(url, headers=request_headers)
-        return urllib.request.urlopen(request)
+        return urllib.request.urlopen(request, context=shared_ssl_context())
 
     def get_json(
         self,

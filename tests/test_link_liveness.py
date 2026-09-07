@@ -52,7 +52,7 @@ def test_rate_limiting_and_gated_reads_are_tolerated_statuses() -> None:
 
 def test_probe_classifies_by_status(monkeypatch: pytest.MonkeyPatch) -> None:
     def raise_code(code: int):
-        def opener(request, timeout=0):
+        def opener(request, timeout=0, **_):
             raise _http_error(code)
 
         return opener
@@ -64,7 +64,7 @@ def test_probe_classifies_by_status(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_transport_failure_is_tolerated_not_dead(monkeypatch: pytest.MonkeyPatch) -> None:
-    def refuse(request, timeout=0):
+    def refuse(request, timeout=0, **_):
         raise urllib.error.URLError("connection refused")
 
     monkeypatch.setattr(ll.urllib.request, "urlopen", refuse)

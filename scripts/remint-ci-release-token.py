@@ -26,6 +26,8 @@ import urllib.request
 
 import boto3
 
+from agentic_os import shared_ssl_context
+
 FORGEJO_BASE = "https://forgejo.coilysiren.me/api/v1"
 BOT_USER = "coilyco-ops"
 TOKEN_NAME = "ci-release-token"
@@ -42,7 +44,9 @@ def api(method: str, path: str, auth: str, body: dict | None = None) -> tuple[in
         headers={"Authorization": auth, "Content-Type": "application/json"},
     )
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
+        with urllib.request.urlopen(
+            request, timeout=30, context=shared_ssl_context()
+        ) as response:
             raw = response.read()
             return response.status, json.loads(raw) if raw else None
     except urllib.error.HTTPError as error:

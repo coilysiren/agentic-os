@@ -28,6 +28,7 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from agentic_os import shared_ssl_context
 from agentic_os.config import load_excludes
 from agentic_os.pre_commit.check_dead_links import strip_fenced_code
 from agentic_os.pre_commit.check_outbound_links import (
@@ -62,7 +63,9 @@ def probe(url: str, timeout: int = DEFAULT_TIMEOUT) -> tuple[str, str]:
     """Classify one URL as ok, tolerated, or dead, with a human reason."""
     request = urllib.request.Request(url, method="GET", headers={"User-Agent": USER_AGENT})
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with urllib.request.urlopen(
+            request, timeout=timeout, context=shared_ssl_context()
+        ) as response:
             return "ok", str(response.status)
     except urllib.error.HTTPError as exc:
         if exc.code in TOLERATED_STATUS:

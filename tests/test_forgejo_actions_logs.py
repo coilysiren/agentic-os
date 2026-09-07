@@ -82,7 +82,7 @@ def _install(
 ) -> tuple[logs.ForgejoAPI, list[urllib.request.Request]]:
     calls: list[urllib.request.Request] = []
 
-    def fake_urlopen(request: urllib.request.Request) -> FakeResponse:
+    def fake_urlopen(request: urllib.request.Request, **_: object) -> FakeResponse:
         calls.append(request)
         return handler(request)
 

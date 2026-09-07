@@ -9,6 +9,8 @@ import urllib.request
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
+from agentic_os import shared_ssl_context
+
 
 FORGEJO_API = "https://forgejo.coilysiren.me/api/v1"
 _TIMEOUT = 30
@@ -43,7 +45,9 @@ def _get_json(url: str) -> object:
         url,
         headers={"User-Agent": "aos-prod-install-ref", "Accept": "application/json"},
     )
-    with urllib.request.urlopen(request, timeout=_TIMEOUT) as response:
+    with urllib.request.urlopen(
+        request, timeout=_TIMEOUT, context=shared_ssl_context()
+    ) as response:
         return json.load(response)
 
 

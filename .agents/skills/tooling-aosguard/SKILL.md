@@ -51,3 +51,4 @@ is exactly what a generated skill will never contain.
 * Verbs per area - the generated `aosguard-<area>` skills.
 * Rules and vendored specs - `.umbra/guardfiles/aosguard/`.
 * Build rule and ownership - [`references/aosguard.md`](references/aosguard.md).
+* CERTIFICATE_VERIFY_FAILED on every call - [`references/tls-trust-store.md`](references/tls-trust-store.md). It is a local empty trust store, not a bad endpoint or credential.
