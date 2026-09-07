@@ -60,4 +60,15 @@ roles {
         composed-skill "personal-preference-*"
         composed-skill "personal-preferences"
     }
+
+    // Live in the launch profiles and the roster since it landed, with only
+    // this allowlist and its icon lagging. Selected off the role's purpose.
+    role underwriter {
+        composed-skill writing-system-improvement-vocab
+        composed-skill tooling-code-review
+        composed-skill tooling-tpm-causal-claim-audit
+        composed-skill tooling-tpm-evidence-synthesis
+        composed-skill "tooling-eval-*"
+        composed-skill "coding-core-*"
+    }
 }

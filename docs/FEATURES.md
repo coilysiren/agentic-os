@@ -26,7 +26,7 @@ Major shipped capabilities, not files.
   repository plan, regenerates once on a mismatch, and stops before any worktree
   exists when that cannot converge.
 - [Agent-compose provider](context-budget.md) - scoped skills,
-  personality, and seven deployed roles across the Agent Compose v3 roster.
+  personality, and eight deployed roles across the Agent Compose v3 roster.
 - [Agent tool evaluation](../.agents/skills/tooling-agent-tool-evaluation/SKILL.md) - cross-harness tool evals.
 - [Role-composed skills](role-composed-skills.md) - v2 Core Roster method slices.
 - [AOS launcher](aos-cli.md) - role context with
