@@ -598,3 +598,120 @@ def test_the_combined_id_still_disables_both_halves(
     )
     assert docs_layout.main_placement() == 0
     assert docs_layout.main_size() == 0
+
+
+# guides/: the narrative shelf, separate from the docs/ reference shelf.
+
+def _large_band(tmp_path: Path) -> None:
+    write(
+        tmp_path / "pyproject.toml",
+        '[tool.agentic-os.documentation-layout]\nband = "large"\n',
+    )
+
+
+def test_a_guide_is_an_allowed_location(tmp_path: Path, monkeypatch) -> None:
+    _large_band(tmp_path)
+    write(tmp_path / "guides" / "role-divergence.md", "# Guide\n")
+    _point_repo_root_at(tmp_path, monkeypatch)
+    assert docs_layout.check_markdown_locations() == []
+    assert docs_layout.check_guides_flatness() == []
+
+
+def test_guides_must_stay_flat_like_docs(tmp_path: Path, monkeypatch) -> None:
+    # A nested guide is invisible the same way a nested doc is, and the
+    # remedy is the same: a filename prefix, not a subdirectory.
+    _large_band(tmp_path)
+    write(tmp_path / "guides" / "compose" / "walkthrough.md", "# Guide\n")
+    _point_repo_root_at(tmp_path, monkeypatch)
+    assert docs_layout.check_guides_flatness() != []
+    assert docs_layout.check_markdown_locations() != []
+
+
+def test_a_guide_takes_twice_its_band_per_doc_caps(
+    tmp_path: Path, monkeypatch
+) -> None:
+    # Derived from the band rather than hand-set, so the two shelves cannot
+    # drift apart when a band moves.
+    _point_repo_root_at(tmp_path, monkeypatch)
+    write(
+        tmp_path / "pyproject.toml",
+        '[tool.agentic-os.documentation-layout]\nband = "small"\n',
+    )
+    assert docs_layout.guide_caps() == (80, 6_000)
+    assert docs_layout.guides_cap() == 3
+    _large_band(tmp_path)
+    assert docs_layout.guide_caps() == (240, 16_000)
+    assert docs_layout.guides_cap() == 6
+    assert docs_layout.guide_caps() > docs_layout.markdown_caps()
+
+
+def test_caps_for_routes_a_guide_off_the_docs_cap(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _large_band(tmp_path)
+    _point_repo_root_at(tmp_path, monkeypatch)
+    assert caps_for(Path("guides/walkthrough.md")) == docs_layout.guide_caps()
+    assert caps_for(Path("docs/reference.md")) == docs_layout.markdown_caps()
+    # Only the flat shelf. A nested path is a placement violation, and giving
+    # it the roomier cap would reward the shape the placement rule rejects.
+    assert caps_for(Path("guides/sub/deep.md")) == docs_layout.markdown_caps()
+
+
+def test_a_guide_still_has_a_ceiling(tmp_path: Path, monkeypatch) -> None:
+    _large_band(tmp_path)
+    write(tmp_path / "guides" / "long.md", "# Guide\n" + "line\n" * 300)
+    _point_repo_root_at(tmp_path, monkeypatch)
+    offenders = {v.split(":")[0] for v in docs_layout.check_markdown_sizes()}
+    assert "guides/long.md" in offenders
+
+
+def test_a_repo_at_its_docs_cap_can_still_add_a_guide(
+    tmp_path: Path, monkeypatch
+) -> None:
+    # The case that forced the type: the reference shelf is full and the page
+    # is not that kind of page (teable:coilyco-flight-deck/agentic-os#7077).
+    _large_band(tmp_path)
+    for i in range(40):
+        write(tmp_path / "docs" / f"page-{i}.md", "# Page\n")
+    write(tmp_path / "guides" / "walkthrough.md", "# Guide\n")
+    _point_repo_root_at(tmp_path, monkeypatch)
+    assert docs_layout.check_docs_count() == []
+    assert docs_layout.check_guides_count() == []
+    assert docs_layout.check_markdown_locations() == []
+
+
+def test_guides_carry_their_own_scarce_count_cap(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _large_band(tmp_path)
+    for i in range(7):
+        write(tmp_path / "guides" / f"guide-{i}.md", "# Guide\n")
+    _point_repo_root_at(tmp_path, monkeypatch)
+    assert docs_layout.check_guides_count() != []
+    # A full guide shelf never spends the docs budget, in either direction.
+    assert docs_layout.check_docs_count() == []
+
+
+def test_a_repo_with_no_guides_is_untouched(tmp_path: Path, monkeypatch) -> None:
+    # Opt-in by directory: no config key, and no existing repo needs a change.
+    _large_band(tmp_path)
+    write(tmp_path / "docs" / "reference.md", "# Page\n")
+    _point_repo_root_at(tmp_path, monkeypatch)
+    assert docs_layout.check_guides_count() == []
+    assert docs_layout.check_guides_flatness() == []
+    assert docs_layout.main_placement() == 0
+    assert docs_layout.main_size() == 0
+
+
+def test_an_oversize_guide_is_not_told_to_split_into_docs(
+    tmp_path: Path, monkeypatch
+) -> None:
+    # The remedy that sent the walkthrough back to the shelf it did not fit on
+    # must not be the one the hook prints at a guide author.
+    _large_band(tmp_path)
+    write(tmp_path / "guides" / "long.md", "# Guide\n" + "line\n" * 300)
+    write(tmp_path / "docs" / "long.md", "# Page\n" + "line\n" * 300)
+    _point_repo_root_at(tmp_path, monkeypatch)
+    said = {v.split(":")[0]: v for v in docs_layout.check_markdown_sizes()}
+    assert "splitting the walkthrough" in said["guides/long.md"]
+    assert "Split large docs" in said["docs/long.md"]

@@ -69,8 +69,11 @@ SKILL_DOC = (
     r"\.agents/(?:skills/[A-Za-z0-9_.-]+/SKILL"
     r"|composed/[A-Za-z0-9_.-]+/COMPOSED)\.md"
 )
-EXPLICIT_DOC = rf"(?:/?(?:docs/[A-Za-z0-9][A-Za-z0-9_.-]*\.md|{SKILL_DOC}))"
-RELATIVE_DOC = rf"(?:\.\./)+(?:docs/[A-Za-z0-9][A-Za-z0-9_.-]*\.md|{SKILL_DOC})"
+# Both narrative shelves, so a comment pointing at a moved or deleted guide
+# fails the way a docs/ pointer does instead of going unread.
+DOC_DIR = r"(?:docs|guides)"
+EXPLICIT_DOC = rf"(?:/?(?:{DOC_DIR}/[A-Za-z0-9][A-Za-z0-9_.-]*\.md|{SKILL_DOC}))"
+RELATIVE_DOC = rf"(?:\.\./)+(?:{DOC_DIR}/[A-Za-z0-9][A-Za-z0-9_.-]*\.md|{SKILL_DOC})"
 ROOT_DOC = r"/?(?:AGENTS|CODE-REVIEW|README|SSM)\.md"
 BARE_DOC = r"[a-z0-9]+(?:-[a-z0-9]+)+\.md"
 DOC_REF_RE = re.compile(
@@ -174,7 +177,7 @@ def _candidate_paths(source: Path, ref: str) -> list[Path]:
     target = ref.split("#", 1)[0]
     if target.startswith("/"):
         return [REPO_ROOT / target.lstrip("/")]
-    if target.startswith("docs/") or target.startswith(
+    if target.startswith(("docs/", "guides/")) or target.startswith(
         (".agents/skills/", ".agents/composed/")
     ):
         return [REPO_ROOT / target]
@@ -185,6 +188,7 @@ def _candidate_paths(source: Path, ref: str) -> list[Path]:
     return [
         (REPO_ROOT / source.parent / target).resolve(),
         REPO_ROOT / "docs" / target,
+        REPO_ROOT / "guides" / target,
     ]
 
 

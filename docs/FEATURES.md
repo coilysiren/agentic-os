@@ -73,6 +73,10 @@ Major shipped capabilities, not files.
 - [AGENTS inventory](agents-context-inventory.md) - fleet corpus and clipping candidates.
 - [Repository residency](repo-layout.md) - Agent Compose native-workspace adapter and status tracking.
 - [Catalog caps reference](catalog-caps-reference.md) - generated numeric caps for validators.
+- [Narrative guides shelf](documentation-bands.md) - `guides/*.md` as a second
+  structural documentation type beside `docs/*.md`, with its own roomier size
+  caps and a scarce count, so an end-to-end walkthrough has somewhere legal to
+  live when the reference shelf is full.
 - [Canonical agent-id generator](build-output-is-not-content.md) - short lowercase agent IDs.
 - [Agent-compose provider](context-budget.md) - the AOS capability provider contract.
 

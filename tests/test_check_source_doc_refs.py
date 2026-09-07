@@ -124,3 +124,25 @@ def test_excludes_skip_generated_source(monkeypatch, tmp_path: Path) -> None:
     _git(repo, "add", "-A")
 
     assert _run(monkeypatch, repo) == 0
+
+
+def test_a_guide_reference_resolves_like_a_docs_reference(
+    monkeypatch, tmp_path: Path
+) -> None:
+    # guides/ is the second narrative shelf, so a pointer into it is checked
+    # rather than skipped as an unrecognised path.
+    repo = _repo(tmp_path)
+    _write(repo, "guides/role-divergence.md", "# Guide\n")
+    _write(repo, "cmd/tool.go", "// See guides/role-divergence.md.\npackage main\n")
+    _git(repo, "add", "-A")
+
+    assert _run(monkeypatch, repo) == 0
+
+
+def test_a_dead_guide_reference_fails(monkeypatch, tmp_path: Path, capsys) -> None:
+    repo = _repo(tmp_path)
+    _write(repo, "cmd/tool.go", "// See guides/missing.md.\npackage main\n")
+    _git(repo, "add", "-A")
+
+    assert _run(monkeypatch, repo) == 1
+    assert "guides/missing.md" in capsys.readouterr().err

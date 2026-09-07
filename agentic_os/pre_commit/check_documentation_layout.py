@@ -9,12 +9,31 @@ can never drift between code and prose.
 Markdown documentation may live only in:
     1. the repo root, with a small universal filename allow-list;
     2. docs/*.md, with no docs subdirectories;
-    3. skill folders (.agents/skills, .agents/composed, .claude/skills, or
+    3. guides/*.md, with no guides subdirectories (see below);
+    4. skill folders (.agents/skills, .agents/composed, .claude/skills, or
        skills), which may carry support subdirs. No nested skill entry point
        may hide below the top-level skill dir;
-    4. anywhere under an `examples/` directory at any depth, any .md filename;
-    5. a co-located module README.md, but only in one of two tightly-capped
+    5. anywhere under an `examples/` directory at any depth, any .md filename;
+    6. a co-located module README.md, but only in one of two tightly-capped
        shapes (see below). Any other co-located Markdown is still a violation.
+
+guides/ is narrative, docs/ is reference
+----------------------------------------
+`docs/` answers "how does X work" and is capped short and flat so the set
+stays scannable. `guides/` answers "how do I do Y, end to end", and its value
+is the sequence, the worked example and the failure modes - none of which
+survive being cut to reference length. A guide truncated into a reference page
+is just a worse reference page, so the two shelves take different caps rather
+than sharing one.
+
+Guides do not count toward the docs/ count cap, and vice versa. A repo sitting
+at its docs cap can still add a guide, which is the case that forced the type:
+a walkthrough had nowhere legal to live because the reference shelf was full,
+and splitting or merging reference pages answers neither.
+
+The type is opt-in by directory: a repo with no guides/ is unaffected and
+needs no config. See docs/documentation-bands.md for the caps and the
+derivation behind them.
 
 Module README.md shapes
 -----------------------
@@ -121,6 +140,15 @@ BAND_CAPS = {
 # Declaring is mandatory in both directions (docs/documentation-bands.md).
 # This is only what the caps resolve to while a repo is red for not declaring.
 UNDECLARED_BAND = "small"
+
+DOCS_DIRNAME = "docs"
+GUIDES_DIRNAME = "guides"
+# Mechanism, worked example, failure story - a reference page each, so a guide
+# takes twice the band rather than a hand-set number (documentation-bands.md).
+GUIDE_SIZE_FACTOR = 2
+# Scarce on purpose. A long guide shelf is the reference shelf with more room
+# per file, which is the pressure guides/ was added to relieve.
+GUIDE_BAND_COUNTS = {"small": 3, "large": 6}
 
 # Co-located module README.md caps (outpost / homestead shapes; see docstring).
 # Non-blank lines per README, and prose chars per line (pointer line exempt).
@@ -259,24 +287,37 @@ def markdown_files(apply_excludes: bool = True) -> list[Path]:
     return sorted(out)
 
 
-def check_docs_flatness() -> list[str]:
-    docs = REPO_ROOT / "docs"
-    if not docs.is_dir():
+def _check_flatness(dirname: str) -> list[str]:
+    root = REPO_ROOT / dirname
+    if not root.is_dir():
         return []
     excludes = load_excludes(HOOK_ID)
     violations: list[str] = []
-    for path in sorted(docs.rglob("*")):
+    for path in sorted(root.rglob("*")):
         rel = path.relative_to(REPO_ROOT)
         if should_skip(rel):
             continue
         if is_excluded(rel, excludes) or is_build_output(rel, REPO_ROOT):
             continue
-        if path.is_dir() and path != docs:
+        if path.is_dir() and path != root:
             violations.append(
-                f"{rel.as_posix()}: docs/ must stay flat. Use filename prefixes instead "
-                f"of docs subdirectories."
+                f"{rel.as_posix()}: {dirname}/ must stay flat. Use filename prefixes "
+                f"instead of {dirname} subdirectories."
             )
     return violations
+
+
+def check_docs_flatness() -> list[str]:
+    return _check_flatness(DOCS_DIRNAME)
+
+
+def check_guides_flatness() -> list[str]:
+    return _check_flatness(GUIDES_DIRNAME)
+
+
+def is_guide(rel: Path) -> bool:
+    """A flat guides/<name>.md. Anything deeper is a placement violation."""
+    return len(rel.parts) == 2 and rel.parts[0] == GUIDES_DIRNAME
 
 
 def is_under_examples(rel: Path) -> bool:
@@ -416,7 +457,9 @@ def check_markdown_locations() -> list[str]:
                     f"docs into docs/."
                 )
             continue
-        if rel.parts[0] == "docs" and len(rel.parts) == 2:
+        if rel.parts[0] == DOCS_DIRNAME and len(rel.parts) == 2:
+            continue
+        if is_guide(rel):
             continue
         if is_under_skill_path(rel):
             continue
@@ -431,7 +474,7 @@ def check_markdown_locations() -> list[str]:
             continue
         violations.append(
             f"{rel.as_posix()}: Markdown files may live only at repo root, docs/*.md, "
-            f"a skill folder, or a capped module README.md."
+            f"guides/*.md, a skill folder, or a capped module README.md."
         )
     return violations
 
@@ -486,6 +529,15 @@ def docs_cap(repo_root: Path | None = None) -> int:
     return BAND_CAPS[band(repo_root)][2]
 
 
+def guide_caps(repo_root: Path | None = None) -> tuple[int, int]:
+    lines, chars = markdown_caps(repo_root)
+    return lines * GUIDE_SIZE_FACTOR, chars * GUIDE_SIZE_FACTOR
+
+
+def guides_cap(repo_root: Path | None = None) -> int:
+    return GUIDE_BAND_COUNTS[band(repo_root)]
+
+
 def check_band_declaration() -> list[str]:
     declared = get_str_option(HOOK_ID, "band", "")
     if declared in BAND_CAPS:
@@ -508,22 +560,46 @@ def check_docs_count() -> list[str]:
     over-long doc into two docs, which is how a docs/ folder reaches 156 files
     with none of them over the cap.
     """
-    docs = REPO_ROOT / "docs"
-    if not docs.is_dir():
+    present = _count_markdown(DOCS_DIRNAME)
+    cap = docs_cap()
+    if present is None or present <= cap:
         return []
-    present = sorted(
-        p.relative_to(REPO_ROOT)
-        for p in docs.glob("*.md")
+    return [
+        f"docs/: {present} docs exceeds the {cap}-doc cap for the "
+        f"{band()} band. Merge related pages; splitting one doc into two to "
+        f"clear the size cap trades one violation for another."
+    ]
+
+
+def _count_markdown(dirname: str) -> int | None:
+    """Flat *.md in `dirname`, or None when the directory is absent."""
+    root = REPO_ROOT / dirname
+    if not root.is_dir():
+        return None
+    return sum(
+        1
+        for p in root.glob("*.md")
         if not should_skip(p.relative_to(REPO_ROOT))
         and not is_build_output(p.relative_to(REPO_ROOT), REPO_ROOT)
     )
-    cap = docs_cap()
-    if len(present) <= cap:
+
+
+def check_guides_count() -> list[str]:
+    """Cap how many guides a repo carries, separately from docs/.
+
+    Scarcity is the point. A guide earns its place by being an end-to-end
+    journey somebody actually takes, and a repo has few of those. Without the
+    cap the narrative shelf becomes a second reference shelf with a longer
+    per-file budget, which is strictly worse than the one it relieved.
+    """
+    present = _count_markdown(GUIDES_DIRNAME)
+    cap = guides_cap()
+    if present is None or present <= cap:
         return []
     return [
-        f"docs/: {len(present)} docs exceeds the {cap}-doc cap for the "
-        f"{band()} band. Merge related pages; splitting one doc into two to "
-        f"clear the size cap trades one violation for another."
+        f"guides/: {present} guides exceeds the {cap}-guide cap for the "
+        f"{band()} band. A guide is an end-to-end walkthrough, not a reference "
+        f"page with more room; fold the rest into docs/*.md."
     ]
 
 
@@ -544,6 +620,8 @@ def caps_for(rel: Path) -> tuple[int, int]:
             HOOK_ID, "readme_max_chars", README_DEFAULT_MAX_CHARS
         )
         return max_lines, max_chars
+    if is_guide(rel):
+        return guide_caps()
     return markdown_caps()
 
 
@@ -559,6 +637,21 @@ def strip_frontmatter(text: str) -> str:
     if end == -1:
         return text
     return text[end + len("\n---\n") :]
+
+
+def _oversize_remedy(rel: Path) -> str:
+    """What to do about an over-long file, by what kind of file it is.
+
+    Telling a guide author to split into docs/*.md is the remedy that sent the
+    walkthrough back to the shelf it did not fit on. A guide that overruns is
+    carrying reference material, and that is the half that moves.
+    """
+    if is_guide(rel):
+        return (
+            "A guide is one journey; move the reference material it carries "
+            "into docs/*.md rather than splitting the walkthrough."
+        )
+    return "Split large docs into smaller docs/*.md files."
 
 
 def check_markdown_sizes() -> list[str]:
@@ -579,15 +672,16 @@ def check_markdown_sizes() -> list[str]:
         n_lines = len(text.splitlines())
         n_chars = len(text)
         max_lines, max_chars = caps_for(rel)
+        remedy = _oversize_remedy(rel)
         if n_lines > max_lines:
             violations.append(
                 f"{rel.as_posix()}: {n_lines} lines exceeds the {max_lines}-line "
-                f"cap. Split large docs into smaller docs/*.md files."
+                f"cap. {remedy}"
             )
         if n_chars > max_chars:
             violations.append(
                 f"{rel.as_posix()}: {n_chars} chars exceeds the {max_chars}-char "
-                f"cap. Split large docs into smaller docs/*.md files."
+                f"cap. {remedy}"
             )
     return violations
 
@@ -617,7 +711,10 @@ def main_placement() -> int:
         return 0
     return _report(
         PLACEMENT_HOOK_ID,
-        check_docs_flatness() + check_markdown_locations() + check_skill_flatness(),
+        check_docs_flatness()
+        + check_guides_flatness()
+        + check_markdown_locations()
+        + check_skill_flatness(),
     )
 
 
@@ -627,7 +724,10 @@ def main_size() -> int:
         return 0
     return _report(
         SIZE_HOOK_ID,
-        check_band_declaration() + check_docs_count() + check_markdown_sizes(),
+        check_band_declaration()
+        + check_docs_count()
+        + check_guides_count()
+        + check_markdown_sizes(),
     )
 
 

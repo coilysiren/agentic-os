@@ -84,7 +84,7 @@
 
 - id: documentation-placement
   name: documentation placement
-  description: "Where Markdown may live: root allow-list, flat docs/, skill folders only."
+  description: "Where Markdown may live: root allow-list, flat docs/ and guides/, skill folders only."
   entry: check-documentation-placement
   language: python
   always_run: true
@@ -93,7 +93,7 @@
 
 - id: documentation-size
   name: documentation size
-  description: "How big Markdown may be: the declared band's per-file line and char caps, and the docs/ count cap."
+  description: "How big Markdown may be: the declared band's per-file line and char caps, and the docs/ and guides/ count caps."
   entry: check-documentation-size
   language: python
   always_run: true

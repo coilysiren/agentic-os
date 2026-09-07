@@ -29,6 +29,7 @@ def run_for_repo(repo: Path) -> dict:
         return {"status": "disabled", "violations": []}
     violations = (
         chk.check_docs_flatness()
+        + chk.check_guides_flatness()
         + chk.check_markdown_locations()
         + chk.check_markdown_sizes()
         + chk.check_skill_flatness()

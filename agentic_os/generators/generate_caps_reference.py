@@ -96,6 +96,46 @@ def _caps() -> list[tuple[str, str, str, str]]:
         ),
         (
             "documentation-layout",
+            "guide lines (small band)",
+            str(dl.BAND_CAPS["small"][0] * dl.GUIDE_SIZE_FACTOR),
+            "lines for a `guides/*.md` narrative walkthrough, "
+            f"{dl.GUIDE_SIZE_FACTOR}x the small band's per-doc cap",
+        ),
+        (
+            "documentation-layout",
+            "guide chars (small band)",
+            str(dl.BAND_CAPS["small"][1] * dl.GUIDE_SIZE_FACTOR),
+            "characters for a `guides/*.md` page where "
+            '`band = "small"` is declared',
+        ),
+        (
+            "documentation-layout",
+            "guides count (small band)",
+            str(dl.GUIDE_BAND_COUNTS["small"]),
+            '`guides/*.md` files where `band = "small"` is declared',
+        ),
+        (
+            "documentation-layout",
+            "guide lines (large band)",
+            str(dl.BAND_CAPS["large"][0] * dl.GUIDE_SIZE_FACTOR),
+            "lines for a `guides/*.md` narrative walkthrough, "
+            f"{dl.GUIDE_SIZE_FACTOR}x the large band's per-doc cap",
+        ),
+        (
+            "documentation-layout",
+            "guide chars (large band)",
+            str(dl.BAND_CAPS["large"][1] * dl.GUIDE_SIZE_FACTOR),
+            "characters for a `guides/*.md` page where "
+            '`band = "large"` is declared',
+        ),
+        (
+            "documentation-layout",
+            "guides count (large band)",
+            str(dl.GUIDE_BAND_COUNTS["large"]),
+            '`guides/*.md` files where `band = "large"` is declared',
+        ),
+        (
+            "documentation-layout",
             "README overview lines",
             str(dl.TRIFECTA_MAX_LINES),
             "lines, blank ones included, for the root README.md",
