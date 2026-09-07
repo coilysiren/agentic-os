@@ -1974,3 +1974,41 @@ func TestACleanCheckoutReportsNoOrphanBranches(t *testing.T) {
 		t.Fatalf("a clean checkout reported orphan branches: %q", report)
 	}
 }
+
+// The standalone case only pins that the credential is NOT copied.
+// teable:coilyco-flight-deck/agentic-os#7021.
+func TestStageNativeRoleHomeLinksClaudeCredential(t *testing.T) {
+	source := filepath.Join(t.TempDir(), "source")
+	target := filepath.Join(t.TempDir(), "target")
+	if err := os.MkdirAll(filepath.Join(source, ".claude"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	credential := filepath.Join(source, ".claude", ".credentials.json")
+	if err := os.WriteFile(credential, []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := stageNativeRoleHome(source, target, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	link := filepath.Join(target, ".claude", ".credentials.json")
+	info, err := os.Lstat(link)
+	if err != nil {
+		t.Fatalf("staged session home has no credential: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("credential should link to the host, got mode %s", info.Mode())
+	}
+	resolved, err := filepath.EvalSymlinks(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := filepath.EvalSymlinks(credential)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved != want {
+		t.Fatalf("credential links to %s, want %s", resolved, want)
+	}
+}
