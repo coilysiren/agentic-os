@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -115,4 +116,93 @@ func reclaimSessionClaudeCredential(sessionHome, home string) (bool, error) {
 		return false, fmt.Errorf("write %s: %w", target, err)
 	}
 	return true, nil
+}
+
+// harvestSessionClaudeKeychain recovers a rotated token from the per-session
+// Keychain item. docs/native-claude-credentials.md.
+func harvestSessionClaudeKeychain(
+	ctx context.Context,
+	read claudeKeyringReader,
+	sessionHome, home string,
+) (bool, error) {
+	if strings.TrimSpace(sessionHome) == "" {
+		return false, nil
+	}
+	configDir := filepath.Join(sessionHome, ".claude")
+	service := nativeClaudeKeychainService(home, configDir)
+	// A session on the default service shares the host's item, so there is
+	// nothing session-scoped to recover.
+	if service == claudeCredentialService {
+		return false, nil
+	}
+	// A link or a file still present is reclaimSessionClaudeCredential's case.
+	switch _, err := os.Lstat(filepath.Join(configDir, ".credentials.json")); {
+	case err == nil:
+		return false, nil
+	case !os.IsNotExist(err):
+		return false, fmt.Errorf("inspect %s: %w", configDir, err)
+	}
+
+	secret, err := read(ctx, service, nativeClaudeKeychainAccount())
+	if errors.Is(err, errClaudeKeyringUnsupported) ||
+		errors.Is(err, errClaudeKeyringNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if len(secret) == 0 {
+		return false, nil
+	}
+
+	target := canonicalClaudeCredentialPath(home)
+	fresher, err := claudeCredentialOutlives(secret, target)
+	if err != nil || !fresher {
+		return false, err
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+		return false, fmt.Errorf("create %s: %w", filepath.Dir(target), err)
+	}
+	if err := os.WriteFile(target, secret, 0o600); err != nil {
+		return false, fmt.Errorf("write %s: %w", target, err)
+	}
+	return true, nil
+}
+
+// claudeCredentialOutlives refuses to retire a token that lasts longer than the
+// candidate, which is how the retired per-session harvest lost rotations.
+func claudeCredentialOutlives(candidate []byte, target string) (bool, error) {
+	current, err := os.ReadFile(target)
+	if os.IsNotExist(err) {
+		return true, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("read %s: %w", target, err)
+	}
+	candidateExpiry, ok := claudeCredentialExpiry(candidate)
+	if !ok {
+		return false, nil
+	}
+	currentExpiry, ok := claudeCredentialExpiry(current)
+	if !ok {
+		return false, nil
+	}
+	return candidateExpiry > currentExpiry, nil
+}
+
+// An unparsable or unstamped payload compares as unknown rather than as zero,
+// so it never wins the comparison above.
+func claudeCredentialExpiry(payload []byte) (int64, bool) {
+	var envelope struct {
+		OAuth struct {
+			ExpiresAt int64 `json:"expiresAt"`
+		} `json:"claudeAiOauth"`
+	}
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		return 0, false
+	}
+	if envelope.OAuth.ExpiresAt <= 0 {
+		return 0, false
+	}
+	return envelope.OAuth.ExpiresAt, true
 }

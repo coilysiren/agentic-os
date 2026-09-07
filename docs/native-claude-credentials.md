@@ -31,21 +31,21 @@ Seeding never overwrites. Once the file exists it is authoritative and the
 Keychain item stops being updated, so copying the stale item over a live file
 would retire the token every session is using.
 
-That ordering is not new. `discoverClaudeAuthProjection` has always preferred
-the file and fallen back to the Keychain when staging a credential for a
-container, so native sessions now resolve their login the same way containers
-already did.
+## Write-back at cleanup
 
-## The write-back guard
+A rotated token reaches the canonical file two ways, because it goes missing two
+ways. A session that **replaced** the link with a regular file has that file
+copied back. A session whose entry is **gone** has its Keychain item read
+instead, because the harness deletes `.credentials.json` once the token behind
+it expires and falls back to the item digested from `CLAUDE_CONFIG_DIR`
+(`teable:coilyco-flight-deck/agentic-os#7021`, reproduced under plain `claude`).
+Without that second case the seed cannot recover, since it never overwrites: an
+expired canonical stays expired and every seat pays a login every launch.
 
-At cleanup, a finished session whose `.credentials.json` is a **regular file**
-rather than a symlink has its contents copied back to the canonical file.
-
-A session that refreshes normally writes through the link and the guard is a
-no-op. It exists because a write that replaced the link instead would strand the
-rotated token in a session directory about to be reaped, and refresh tokens
-rotate on use, so the canonical file would go stale and every other session with
-it. Failure warns, never blocks.
+Only a token that **outlives** canonical is written, compared on
+`claudeAiOauth.expiresAt`, so an unparsable or unstamped payload loses rather
+than winning as zero. That is what separates this from the lend-and-return
+failure below. Failure warns, never blocks.
 
 ## Boundaries and tradeoffs
 

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -199,5 +200,170 @@ func TestReclaimSessionClaudeCredentialToleratesAnAbsentSession(t *testing.T) {
 		if reclaimed {
 			t.Fatalf("reclaim %q reported a recovery", sessionHome)
 		}
+	}
+}
+
+// stampedCredential renders the envelope the harness writes, at one expiry.
+func stampedCredential(expiresAt int64) []byte {
+	return []byte(fmt.Sprintf(
+		`{"claudeAiOauth":{"accessToken":"t","expiresAt":%d}}`, expiresAt))
+}
+
+func TestHarvestSessionClaudeKeychainRecoversTheDeletedLink(t *testing.T) {
+	home := t.TempDir()
+	sessionHome := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(sessionHome, ".claude"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	read, asked := stubKeyring(stampedCredential(200), nil)
+
+	harvested, err := harvestSessionClaudeKeychain(
+		context.Background(), read, sessionHome, home)
+	if err != nil {
+		t.Fatalf("harvest: %v", err)
+	}
+	if !harvested {
+		t.Fatal("harvest reported no write")
+	}
+	body, err := os.ReadFile(canonicalClaudeCredentialPath(home))
+	if err != nil {
+		t.Fatalf("read canonical: %v", err)
+	}
+	if string(body) != string(stampedCredential(200)) {
+		t.Fatalf("canonical body = %q", body)
+	}
+	// It must ask for the session digest, never the shared host item.
+	want := nativeClaudeKeychainService(home, filepath.Join(sessionHome, ".claude"))
+	if len(*asked) != 1 || (*asked)[0] != want {
+		t.Fatalf("services read = %v, want %q", *asked, want)
+	}
+}
+
+// The failure that retired the previous design: a reaped session's older token
+// overwriting the one every live session is using.
+func TestHarvestSessionClaudeKeychainKeepsTheLongerLivedToken(t *testing.T) {
+	home := t.TempDir()
+	sessionHome := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(sessionHome, ".claude"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	canonical := canonicalClaudeCredentialPath(home)
+	if err := os.MkdirAll(filepath.Dir(canonical), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(canonical, stampedCredential(500), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	read, _ := stubKeyring(stampedCredential(200), nil)
+
+	harvested, err := harvestSessionClaudeKeychain(
+		context.Background(), read, sessionHome, home)
+	if err != nil {
+		t.Fatalf("harvest: %v", err)
+	}
+	if harvested {
+		t.Fatal("harvest retired a token that outlives the candidate")
+	}
+	body, err := os.ReadFile(canonical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(body) != string(stampedCredential(500)) {
+		t.Fatalf("canonical was overwritten: %q", body)
+	}
+}
+
+func TestHarvestSessionClaudeKeychainAdvancesToTheFresherToken(t *testing.T) {
+	home := t.TempDir()
+	sessionHome := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(sessionHome, ".claude"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	canonical := canonicalClaudeCredentialPath(home)
+	if err := os.MkdirAll(filepath.Dir(canonical), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(canonical, stampedCredential(200), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	read, _ := stubKeyring(stampedCredential(900), nil)
+
+	harvested, err := harvestSessionClaudeKeychain(
+		context.Background(), read, sessionHome, home)
+	if err != nil {
+		t.Fatalf("harvest: %v", err)
+	}
+	if !harvested {
+		t.Fatal("harvest declined a fresher token")
+	}
+	body, err := os.ReadFile(canonical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(body) != string(stampedCredential(900)) {
+		t.Fatalf("canonical body = %q", body)
+	}
+}
+
+// A link still in place means the session never lost it, so the file path owns
+// the write-back and the Keychain must not be consulted at all.
+func TestHarvestSessionClaudeKeychainSkipsWhenTheLinkSurvives(t *testing.T) {
+	home := t.TempDir()
+	sessionHome := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(sessionHome, ".claude"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	canonical := canonicalClaudeCredentialPath(home)
+	if err := os.MkdirAll(filepath.Dir(canonical), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(canonical, stampedCredential(200), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(
+		canonical,
+		filepath.Join(sessionHome, ".claude", ".credentials.json"),
+	); err != nil {
+		t.Fatal(err)
+	}
+	read, asked := stubKeyring(stampedCredential(900), nil)
+
+	harvested, err := harvestSessionClaudeKeychain(
+		context.Background(), read, sessionHome, home)
+	if err != nil {
+		t.Fatalf("harvest: %v", err)
+	}
+	if harvested {
+		t.Fatal("harvest wrote while the session link was intact")
+	}
+	if len(*asked) != 0 {
+		t.Fatalf("keychain consulted while the link survived: %v", *asked)
+	}
+}
+
+// An unstamped payload cannot be compared, so it must lose rather than win by
+// counting as expiry zero.
+func TestHarvestSessionClaudeKeychainRefusesAnUncomparablePayload(t *testing.T) {
+	home := t.TempDir()
+	sessionHome := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(sessionHome, ".claude"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	canonical := canonicalClaudeCredentialPath(home)
+	if err := os.MkdirAll(filepath.Dir(canonical), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(canonical, stampedCredential(200), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	read, _ := stubKeyring([]byte(`{"claudeAiOauth":{"accessToken":"t"}}`), nil)
+
+	harvested, err := harvestSessionClaudeKeychain(
+		context.Background(), read, sessionHome, home)
+	if err != nil {
+		t.Fatalf("harvest: %v", err)
+	}
+	if harvested {
+		t.Fatal("harvest wrote an uncomparable payload over a stamped one")
 	}
 }

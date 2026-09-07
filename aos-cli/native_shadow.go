@@ -665,7 +665,19 @@ func harvestNativeClaudeLease(runtime nativeRuntime, lease *nativeLease) bool {
 			"aos: native session Claude login not returned to the host: %v\n", err)
 		return false
 	}
-	return reclaimed
+	if reclaimed {
+		return true
+	}
+	// The harness deletes the staged link when it cannot refresh the token, and
+	// the rotation then lives only in the session Keychain item.
+	harvested, err := harvestSessionClaudeKeychain(
+		context.Background(), runtime.claudeKeyring(), lease.SessionHome, runtime.Home)
+	if err != nil {
+		fmt.Fprintf(runtime.Stderr,
+			"aos: native session Claude login not harvested from the keychain: %v\n", err)
+		return false
+	}
+	return harvested
 }
 
 // nativeHeldLease pairs a lease with its file so startup can read every lease
