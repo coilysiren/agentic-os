@@ -19,7 +19,6 @@ def test_render_reflects_live_constants() -> None:
         *dl.BAND_CAPS["large"],
         dl.BAND_CAPS["small"][0] * dl.GUIDE_SIZE_FACTOR,
         dl.BAND_CAPS["large"][1] * dl.GUIDE_SIZE_FACTOR,
-        *dl.GUIDE_BAND_COUNTS.values(),
         dl.TRIFECTA_MAX_LINES,
         dl.TRIFECTA_MAX_CHARS,
         dl.AGENTS_DEFAULT_MAX_LINES,

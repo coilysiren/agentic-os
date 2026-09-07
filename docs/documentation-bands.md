@@ -1,13 +1,13 @@
 # Documentation size bands
 
 A repo declares one band and gets its caps: lines and chars per Markdown file,
-how many `docs/*.md` reference pages it may carry, and the roomier but scarcer
-pair for `guides/*.md` narrative walkthroughs.
+how many `docs/*.md` reference pages it may carry, and the roomier pair for
+`guides/*.md` narrative walkthroughs.
 
-| band | lines | chars | docs | guide lines | guide chars | guides |
-| --- | --- | --- | --- | --- | --- | --- |
-| `small` | 40 | 3,000 | 20 | 80 | 6,000 | 3 |
-| `large` | 120 | 8,000 | 40 | 240 | 16,000 | 6 |
+| band | lines | chars | docs | guide lines | guide chars |
+| --- | --- | --- | --- | --- | --- |
+| `small` | 40 | 3,000 | 20 | 80 | 6,000 |
+| `large` | 120 | 8,000 | 40 | 240 | 16,000 |
 
 ```toml
 [tool.agentic-os.documentation-layout]
@@ -25,12 +25,13 @@ same way a missing declaration does. Non-Python repos use `.agentic-os.toml`.
 `docs/` answers *how does X work*, capped short and flat so the set stays
 scannable. `guides/` answers *how do I do Y, end to end*, where the value is the
 sequence, the worked example and the failure modes, none of which survive being
-cut to reference length. A guide takes twice its band's per-doc caps and a
-deliberately scarce count, both derived from the band so a band move carries
-them. The two shelves count separately, the case that forced the type: a repo at
-its `docs/` cap can still add a guide. Opt in by creating the directory, and
-cross-link out as `../docs/<name>.md`, since `dead-cross-links` resolves a
-relative link against the file it sits in.
+cut to reference length. A guide takes twice its band's per-doc caps, so a band
+move carries them. The two shelves count separately: a repo at its `docs/` cap
+can still add a guide, the case that forced the type. Opt in by creating the
+directory, and cross-link out as `../docs/<name>.md`: `dead-cross-links`
+resolves a relative link against the file it sits in. There is no count cap:
+guide count tracks what a repo ships rather than what it invented, and the old
+one named a fold-into-`docs/` fix a full reference shelf blocks.
 
 ## Why a count cap exists at all
 
@@ -49,12 +50,11 @@ size would fire constantly on prose; one far above would never fire at all.
 
 ## The two caps multiply
 
-Count times lines is a total documentation budget, and it is the number worth
-arguing about rather than either cap alone: `small` is 20 x 40 = 800 lines,
-`large` is 40 x 120 = 4,800, and the guide shelf adds 30% on top of its band's
-budget by construction. A repo cannot escape the budget by trading one cap
-against the other. Merging two docs to clear the count spends the line cap, and
-splitting one to clear the line cap spends the count.
+Count times lines is a total documentation budget for `docs/`, and it is the
+number worth arguing about rather than either cap alone: `small` is 20 x 40 =
+800 lines, `large` is 40 x 120 = 4,800. A repo cannot escape it by trading one
+cap against the other. Merging two docs to clear the count spends the line cap,
+and splitting one to clear the line cap spends the count.
 
 ## No per-file escape
 

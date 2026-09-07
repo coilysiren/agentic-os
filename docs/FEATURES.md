@@ -79,7 +79,7 @@ Major shipped capabilities, not files.
   that reads like a bad endpoint. Verification is never weakened.
 - [Narrative guides shelf](documentation-bands.md) - `guides/*.md` as a second
   structural documentation type beside `docs/*.md`, with its own roomier size
-  caps and a scarce count, so an end-to-end walkthrough has somewhere legal to
+  caps and no count cap, so an end-to-end walkthrough has somewhere legal to
   live when the reference shelf is full.
 - [Canonical agent-id generator](build-output-is-not-content.md) - short lowercase agent IDs.
 - [Agent-compose provider](context-budget.md) - the AOS capability provider contract.

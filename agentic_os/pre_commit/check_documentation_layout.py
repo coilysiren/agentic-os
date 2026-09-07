@@ -26,10 +26,15 @@ survive being cut to reference length. A guide truncated into a reference page
 is just a worse reference page, so the two shelves take different caps rather
 than sharing one.
 
-Guides do not count toward the docs/ count cap, and vice versa. A repo sitting
-at its docs cap can still add a guide, which is the case that forced the type:
-a walkthrough had nowhere legal to live because the reference shelf was full,
-and splitting or merging reference pages answers neither.
+Guides do not count toward the docs/ count cap. A repo sitting at its docs cap
+can still add a guide, which is the case that forced the type: a walkthrough
+had nowhere legal to live because the reference shelf was full, and splitting
+or merging reference pages answers neither.
+
+The guide shelf carries no count cap of its own. Guide count tracks what a repo
+ships rather than how much narrative it invented, so a repo adding a seat or a
+target earns a guide with it, and a count cap there fails the repo while naming
+a fix (fold into docs/) that a full reference shelf makes impossible.
 
 The type is opt-in by directory: a repo with no guides/ is unaffected and
 needs no config. See docs/documentation-bands.md for the caps and the
@@ -146,9 +151,6 @@ GUIDES_DIRNAME = "guides"
 # Mechanism, worked example, failure story - a reference page each, so a guide
 # takes twice the band rather than a hand-set number (documentation-bands.md).
 GUIDE_SIZE_FACTOR = 2
-# Scarce on purpose. A long guide shelf is the reference shelf with more room
-# per file, which is the pressure guides/ was added to relieve.
-GUIDE_BAND_COUNTS = {"small": 3, "large": 6}
 
 # Co-located module README.md caps (outpost / homestead shapes; see docstring).
 # Non-blank lines per README, and prose chars per line (pointer line exempt).
@@ -534,10 +536,6 @@ def guide_caps(repo_root: Path | None = None) -> tuple[int, int]:
     return lines * GUIDE_SIZE_FACTOR, chars * GUIDE_SIZE_FACTOR
 
 
-def guides_cap(repo_root: Path | None = None) -> int:
-    return GUIDE_BAND_COUNTS[band(repo_root)]
-
-
 def check_band_declaration() -> list[str]:
     declared = get_str_option(HOOK_ID, "band", "")
     if declared in BAND_CAPS:
@@ -582,25 +580,6 @@ def _count_markdown(dirname: str) -> int | None:
         if not should_skip(p.relative_to(REPO_ROOT))
         and not is_build_output(p.relative_to(REPO_ROOT), REPO_ROOT)
     )
-
-
-def check_guides_count() -> list[str]:
-    """Cap how many guides a repo carries, separately from docs/.
-
-    Scarcity is the point. A guide earns its place by being an end-to-end
-    journey somebody actually takes, and a repo has few of those. Without the
-    cap the narrative shelf becomes a second reference shelf with a longer
-    per-file budget, which is strictly worse than the one it relieved.
-    """
-    present = _count_markdown(GUIDES_DIRNAME)
-    cap = guides_cap()
-    if present is None or present <= cap:
-        return []
-    return [
-        f"guides/: {present} guides exceeds the {cap}-guide cap for the "
-        f"{band()} band. A guide is an end-to-end walkthrough, not a reference "
-        f"page with more room; fold the rest into docs/*.md."
-    ]
 
 
 def caps_for(rel: Path) -> tuple[int, int]:
@@ -726,7 +705,6 @@ def main_size() -> int:
         SIZE_HOOK_ID,
         check_band_declaration()
         + check_docs_count()
-        + check_guides_count()
         + check_markdown_sizes(),
     )
 

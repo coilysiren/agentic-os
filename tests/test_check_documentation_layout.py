@@ -638,10 +638,8 @@ def test_a_guide_takes_twice_its_band_per_doc_caps(
         '[tool.agentic-os.documentation-layout]\nband = "small"\n',
     )
     assert docs_layout.guide_caps() == (80, 6_000)
-    assert docs_layout.guides_cap() == 3
     _large_band(tmp_path)
     assert docs_layout.guide_caps() == (240, 16_000)
-    assert docs_layout.guides_cap() == 6
     assert docs_layout.guide_caps() > docs_layout.markdown_caps()
 
 
@@ -676,20 +674,21 @@ def test_a_repo_at_its_docs_cap_can_still_add_a_guide(
     write(tmp_path / "guides" / "walkthrough.md", "# Guide\n")
     _point_repo_root_at(tmp_path, monkeypatch)
     assert docs_layout.check_docs_count() == []
-    assert docs_layout.check_guides_count() == []
     assert docs_layout.check_markdown_locations() == []
 
 
-def test_guides_carry_their_own_scarce_count_cap(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_guides_carry_no_count_cap(tmp_path: Path, monkeypatch) -> None:
+    # agent-compose measured at 8 guides against a full docs/: the old cap fired
+    # on the seat count and named a fold-into-docs fix that was impossible.
     _large_band(tmp_path)
-    for i in range(7):
+    for i in range(40):
+        write(tmp_path / "docs" / f"page-{i}.md", "# Page\n")
+    for i in range(8):
         write(tmp_path / "guides" / f"guide-{i}.md", "# Guide\n")
     _point_repo_root_at(tmp_path, monkeypatch)
-    assert docs_layout.check_guides_count() != []
     # A full guide shelf never spends the docs budget, in either direction.
     assert docs_layout.check_docs_count() == []
+    assert docs_layout.main_size() == 0
 
 
 def test_a_repo_with_no_guides_is_untouched(tmp_path: Path, monkeypatch) -> None:
@@ -697,7 +696,6 @@ def test_a_repo_with_no_guides_is_untouched(tmp_path: Path, monkeypatch) -> None
     _large_band(tmp_path)
     write(tmp_path / "docs" / "reference.md", "# Page\n")
     _point_repo_root_at(tmp_path, monkeypatch)
-    assert docs_layout.check_guides_count() == []
     assert docs_layout.check_guides_flatness() == []
     assert docs_layout.main_placement() == 0
     assert docs_layout.main_size() == 0
