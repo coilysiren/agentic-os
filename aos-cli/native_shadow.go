@@ -176,6 +176,11 @@ func runNativeShadow(ctx context.Context, cmd *cli.Command) error {
 	}
 	runtime.Role = role
 	runtime.Progress.Begin(harness, command)
+	// Before any session state exists, and after `--probe` returned, so a
+	// metadata read never waits. teable:coilyco-bridge/infrastructure#7054
+	if err := gateNativeUpdate(ctx, runtime, defaultNativeUpdateGate()); err != nil {
+		return err
+	}
 	if err := convergeNativeEnvironment(ctx, runtime); err != nil {
 		return fmt.Errorf("converge native environment: %w", err)
 	}

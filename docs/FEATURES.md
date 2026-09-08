@@ -25,6 +25,8 @@ Major shipped capabilities, not files.
   fetches each policy source, verifies the digest Agent Compose sealed into the
   repository plan, regenerates once on a mismatch, and stops before any worktree
   exists when that cannot converge.
+- [Toolchain update gate](native-session-start.md) - startup blocks daily on a
+  stale `aos`, refuses off-TTY, fails open. `AOS_SKIP_UPDATE_GATE=1` bypasses.
 - [Agent-compose provider](context-budget.md) - scoped skills,
   personality, and eight deployed roles across the Agent Compose v3 roster.
 - [Agent tool evaluation](../.agents/skills/tooling-agent-tool-evaluation/SKILL.md) - cross-harness tool evals.
