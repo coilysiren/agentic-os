@@ -81,6 +81,11 @@ Major shipped capabilities, not files.
   structural documentation type beside `docs/*.md`, with its own roomier size
   caps and no count cap, so an end-to-end walkthrough has somewhere legal to
   live when the reference shelf is full.
+- [Centrally ratified documentation exclusions](../guides/ratifying-an-exclusion.md) -
+  a `documentation-layout` exclusion applies only when the repo's own config and
+  agentic-os both name it, so adding one costs two pull requests, a release and
+  a pin bump, while removing one costs one. An unratified local pattern fails
+  the hook by name rather than silently not applying.
 - [Canonical agent-id generator](build-output-is-not-content.md) - short lowercase agent IDs.
 - [Agent-compose provider](context-budget.md) - the AOS capability provider contract.
 

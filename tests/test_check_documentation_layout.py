@@ -5,6 +5,7 @@ not support material that legitimately sits beside SKILL.md.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import agentic_os.config as config
@@ -285,6 +286,7 @@ def _write_generated_docs(tmp_path: Path) -> None:
         write(tmp_path / "cmd" / "generated" / f"generated.{gen}.md", big)
 
 
+
 def test_wildcard_exclude_clears_placement_but_never_size(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -295,6 +297,7 @@ def test_wildcard_exclude_clears_placement_but_never_size(
         'excludes = ["generated.*.md"]\n',
     )
     _point_repo_root_at(tmp_path, monkeypatch)
+    _ratify(tmp_path, monkeypatch, excludes=["generated.*.md"])
     # A wildcard still silences the location rule for the cmd/ copies, because
     # where a generated file lands is a layout decision.
     assert docs_layout.check_markdown_locations() == []
@@ -510,14 +513,14 @@ def test_size_excludes_defaults_to_empty(tmp_path: Path) -> None:
     assert docs_layout.size_excluded_trees(tmp_path) == []
 
 
-def test_size_excludes_reads_the_hook_section(tmp_path: Path) -> None:
+def test_size_excludes_reads_the_hook_section(tmp_path: Path, monkeypatch) -> None:
     (tmp_path / "pyproject.toml").write_text(
         "[tool.agentic-os.documentation-layout]\n"
         'size_excludes = ["services/**", "charts/**"]\n',
         encoding="utf-8",
     )
+    _ratify(tmp_path, monkeypatch, size_excludes=["services/**", "charts/**"])
     assert docs_layout.size_excluded_trees(tmp_path) == ["services/**", "charts/**"]
-
 
 def test_size_excludes_matches_a_nested_doc() -> None:
     from agentic_os.config import is_excluded
@@ -713,3 +716,100 @@ def test_an_oversize_guide_is_not_told_to_split_into_docs(
     said = {v.split(":")[0]: v for v in docs_layout.check_markdown_sizes()}
     assert "splitting the walkthrough" in said["guides/long.md"]
     assert "Split large docs" in said["docs/long.md"]
+
+
+# Central ratification: the local declaration is the request and the entry in
+# documentation_exclusions.json is the grant. Both, or the pattern grants nothing.
+
+
+def _ratify(tmp_path: Path, monkeypatch, **keys: list[str]) -> None:
+    """Ratify patterns for a tmp repo, keyed by the slug it falls back to."""
+    contract = tmp_path / "ratified.json"
+    contract.write_text(
+        json.dumps({"repos": {tmp_path.name: keys}}), encoding="utf-8"
+    )
+    monkeypatch.setattr(config, "_RATIFIED_PATH", contract)
+    config._RATIFIED_CACHE.clear()
+
+
+def test_an_unratified_local_declaration_grants_nothing(tmp_path: Path) -> None:
+    write(
+        tmp_path / "pyproject.toml",
+        "[tool.agentic-os.documentation-layout]\n"
+        'size_excludes = ["services/**"]\n',
+    )
+    assert docs_layout.size_excluded_trees(tmp_path) == []
+
+
+def test_an_unratified_local_declaration_is_reported_not_dropped(
+    tmp_path: Path,
+) -> None:
+    # Silently ignoring it would trade one silent escape for another: the repo
+    # reads as excluded while the hook disagrees.
+    write(
+        tmp_path / "pyproject.toml",
+        "[tool.agentic-os.documentation-layout]\n"
+        'size_excludes = ["services/**"]\n',
+    )
+    violations = docs_layout.check_exclusion_ratification("size_excludes", tmp_path)
+    assert len(violations) == 1
+    assert "services/**" in violations[0]
+    assert "documentation_exclusions.json" in violations[0]
+
+
+def test_ratified_and_declared_together_grant_the_exclusion(
+    tmp_path: Path, monkeypatch
+) -> None:
+    write(
+        tmp_path / "pyproject.toml",
+        "[tool.agentic-os.documentation-layout]\n"
+        'size_excludes = ["services/**"]\n',
+    )
+    _ratify(tmp_path, monkeypatch, size_excludes=["services/**"])
+    assert docs_layout.size_excluded_trees(tmp_path) == ["services/**"]
+    assert docs_layout.check_exclusion_ratification("size_excludes", tmp_path) == []
+
+
+def test_ratified_alone_grants_nothing_without_the_local_declaration(
+    tmp_path: Path, monkeypatch
+) -> None:
+    # The central half alone would make circumvention a one-repo change again.
+    _ratify(tmp_path, monkeypatch, size_excludes=["services/**"])
+    assert docs_layout.size_excluded_trees(tmp_path) == []
+
+
+def test_ratification_is_per_key(tmp_path: Path, monkeypatch) -> None:
+    # Ratifying placement never buys the size cap, the distinction agentic-os#1108
+    # drew and agentic-os#1144 blurred.
+    write(
+        tmp_path / "pyproject.toml",
+        "[tool.agentic-os.documentation-layout]\n"
+        'excludes = ["services/**"]\n'
+        'size_excludes = ["services/**"]\n',
+    )
+    _ratify(tmp_path, monkeypatch, excludes=["services/**"])
+    assert docs_layout.placement_excludes(tmp_path) == ["services/**"]
+    assert docs_layout.size_excluded_trees(tmp_path) == []
+
+
+def test_a_missing_contract_ratifies_nothing(tmp_path: Path, monkeypatch) -> None:
+    # Fails closed: an unreadable contract must not become a blanket grant.
+    write(
+        tmp_path / "pyproject.toml",
+        "[tool.agentic-os.documentation-layout]\n"
+        'excludes = ["services/**"]\n',
+    )
+    monkeypatch.setattr(config, "_RATIFIED_PATH", tmp_path / "absent.json")
+    config._RATIFIED_CACHE.clear()
+    assert docs_layout.placement_excludes(tmp_path) == []
+
+
+def test_the_shipped_contract_parses_and_keys_every_entry_by_slug() -> None:
+    contract = config.load_ratification()
+    repos = contract["repos"]
+    assert repos, "the shipped contract must not be empty while repos declare"
+    for slug, entry in repos.items():
+        assert slug == slug.strip() and "/" not in slug
+        assert entry["reason"], f"{slug} carries no written reason"
+        assert isinstance(entry["excludes"], list)
+        assert isinstance(entry["size_excludes"], list)

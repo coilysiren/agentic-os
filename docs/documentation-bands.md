@@ -67,17 +67,11 @@ cap that exists to keep it an inventory.
 
 ## A vendored tree is not this repo's prose
 
-A repo may declare `vendored` path prefixes under the hook config. Markdown
-beneath one takes no size cap, because its shape is owned outside this repo: an
-SDK the repo vendors, or copy an external surface renders. Prefixes only, never
-a bare basename, which would exempt one filename everywhere. It answers the size
-cap alone, so it cannot widen where Markdown may live. `size_excludes` is the
-sibling key for prose a repo owns but sizes differently, such as a monorepo
-co-locating a README and `docs/` under each component: `excludes` governs
-placement and never reaches the size caps, so without it such a repo could buy
-the exemption only by calling its own docs vendored.
-
-## The org profile README belongs to the forge
+A repo may declare `vendored` path prefixes. Markdown beneath one takes no size
+cap, because its shape is owned outside this repo: an SDK the repo vendors, or
+copy an external surface renders. Prefixes only, never a bare basename, which
+would exempt one filename everywhere. It answers the size cap alone, so it
+cannot widen where Markdown may live.
 
 `<org>/.github/profile/README.md` takes no size cap and no module-README shape
 from this hook. Both forges render it as the organisation's front page, so the
@@ -106,8 +100,13 @@ carve-outs are the sections above plus these:
 
 - **Gitignored paths and `SKIP_DIR_NAMES`** - never scanned
   ([why](build-output-is-not-content.md)).
-- **`excludes`** - placement and flatness only. It stopped reaching either size
-  cap, so an entry here no longer answers an over-long file.
+- **`excludes` and `size_excludes`** - requests rather than grants. A pattern
+  applies only when it appears both in the repo's own config and in this repo's
+  `agentic_os/documentation_exclusions.json`, and an unratified local pattern
+  fails the hook by name rather than silently not applying. `excludes` reaches
+  placement and flatness only, never either size cap. `vendored` is not
+  ratified, since it asserts provenance rather than asking for an exemption.
+  Both directions: [ratifying an exclusion](../guides/ratifying-an-exclusion.md).
 - **`SIZE_CAP_EXEMPT_BASENAMES`** - `CODE_OF_CONDUCT.md`, verbatim upstream,
   plus the two skill entrypoints. **`examples/`** - any `*.md` under one, at
   any depth, the Go and Rust idiom.

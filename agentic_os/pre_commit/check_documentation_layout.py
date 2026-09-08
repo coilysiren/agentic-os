@@ -129,6 +129,7 @@ from agentic_os.config import (
     is_excluded,
     load_excludes,
     load_str_list,
+    ratified_patterns,
 )
 from agentic_os.pre_commit.tree import should_skip
 
@@ -195,16 +196,50 @@ def vendored_trees(repo_root: Path | None = None) -> list[str]:
 
 
 def size_excluded_trees(repo_root: Path | None = None) -> list[str]:
-    """Path prefixes this repo owns but sizes differently.
+    """Ratified path prefixes this repo owns but sizes differently.
 
     `excludes` governs placement and deliberately does not reach the size caps,
     and `vendored` says the Markdown is not ours. A monorepo that co-locates a
     README and docs/ under each component fits neither: those docs are ours,
     and the root-plus-flat-docs shape the caps assume does not describe them.
-    Declaring them vendored to buy the exemption would be a false statement
-    about provenance, so this is the separate, honest key.
+
+    Both exclusion keys are ratified centrally, so what a repo declares here is
+    a request rather than a grant. An unratified pattern is reported by
+    `check_exclusion_ratification` instead of silently applying.
     """
-    return load_str_list(HOOK_ID, "size_excludes", repo_root)
+    declared = load_str_list(HOOK_ID, "size_excludes", repo_root)
+    effective, _ = ratified_patterns("size_excludes", declared, repo_root)
+    return effective
+
+
+def placement_excludes(repo_root: Path | None = None) -> list[str]:
+    """Ratified placement excludes, the intersection of local and central."""
+    effective, _ = ratified_patterns(
+        "excludes", load_excludes(HOOK_ID, repo_root), repo_root
+    )
+    return effective
+
+
+def check_exclusion_ratification(key: str, repo_root: Path | None = None) -> list[str]:
+    """Every declared exclusion with no central entry, as a violation.
+
+    Dropping an unratified pattern quietly would trade one silent escape for
+    another: the repo would read as excluded and the hook would disagree. The
+    remedy is the second pull request, so the message names it.
+    """
+    declared = (
+        load_excludes(HOOK_ID, repo_root)
+        if key == "excludes"
+        else load_str_list(HOOK_ID, key, repo_root)
+    )
+    _, unratified = ratified_patterns(key, declared, repo_root)
+    return [
+        f"{key} pattern {pattern!r} is not ratified for this repo. Add it to "
+        f"agentic_os/documentation_exclusions.json in agentic-os with a written "
+        f"reason, release the hook, and bump this repo's pin. Until then it "
+        f"grants nothing."
+        for pattern in unratified
+    ]
 
 
 def is_vendored(rel: Path, patterns: list[str]) -> bool:
@@ -277,7 +312,7 @@ def is_skill_reference(rel: Path) -> bool:
 
 
 def markdown_files(apply_excludes: bool = True) -> list[Path]:
-    excludes = load_excludes(HOOK_ID) if apply_excludes else []
+    excludes = placement_excludes() if apply_excludes else []
     out: list[Path] = []
     for path in REPO_ROOT.rglob("*.md"):
         rel = path.relative_to(REPO_ROOT)
@@ -293,7 +328,7 @@ def _check_flatness(dirname: str) -> list[str]:
     root = REPO_ROOT / dirname
     if not root.is_dir():
         return []
-    excludes = load_excludes(HOOK_ID)
+    excludes = placement_excludes()
     violations: list[str] = []
     for path in sorted(root.rglob("*")):
         rel = path.relative_to(REPO_ROOT)
@@ -489,7 +524,7 @@ def check_skill_flatness(repo_root: Path | None = None) -> list[str]:
     are fine because the rule targets hidden sub-skills.
     """
     root = repo_root or REPO_ROOT
-    excludes = load_excludes(HOOK_ID, root)
+    excludes = placement_excludes(root)
     violations: list[str] = []
     for skill_parts in SKILL_PATHS:
         skill_root = root.joinpath(*skill_parts)
@@ -693,7 +728,8 @@ def main_placement() -> int:
         check_docs_flatness()
         + check_guides_flatness()
         + check_markdown_locations()
-        + check_skill_flatness(),
+        + check_skill_flatness()
+        + check_exclusion_ratification("excludes"),
     )
 
 
@@ -705,7 +741,8 @@ def main_size() -> int:
         SIZE_HOOK_ID,
         check_band_declaration()
         + check_docs_count()
-        + check_markdown_sizes(),
+        + check_markdown_sizes()
+        + check_exclusion_ratification("size_excludes"),
     )
 
 

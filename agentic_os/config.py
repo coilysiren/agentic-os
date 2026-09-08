@@ -29,6 +29,7 @@ without being told. See docs/build-output-is-not-content.md.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -341,3 +342,82 @@ def is_build_output(rel_path: Path | str, repo_root: Path | None = None) -> bool
     files, dirs = tree  # type: ignore[misc]
     s = str(PurePosixPath(str(rel_path).replace("\\", "/")))
     return s not in files and s not in dirs
+
+
+# Central ratification of documentation exclusions, so the escape hatch does not
+# live in the repo under pressure. See guides/ratifying-an-exclusion.md.
+
+_RATIFIED_PATH = Path(__file__).with_name("documentation_exclusions.json")
+_RATIFIED_CACHE: dict[str, object] = {}
+
+
+def current_repo_name(repo_root: Path | None = None) -> str:
+    """Repo slug from origin (worktree-safe), falling back to the toplevel dir.
+
+    A linked worktree's directory name is the task branch rather than the repo,
+    so the remote is read first and the directory is only the fallback.
+    """
+    root = repo_root or REPO_ROOT
+    try:
+        url = subprocess.run(
+            ["git", "-C", str(root), "config", "--get", "remote.origin.url"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    except (subprocess.CalledProcessError, OSError):
+        url = ""
+    if url:
+        slug = url.rstrip("/").rsplit("/", 1)[-1]
+        return slug[:-4] if slug.endswith(".git") else slug
+    try:
+        top = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    except (subprocess.CalledProcessError, OSError):
+        top = ""
+    return Path(top).name if top else root.name
+
+
+def load_ratification(path: Path | None = None) -> dict:
+    """The parsed ratification contract, cached per path."""
+    target = path or _RATIFIED_PATH
+    key = str(target)
+    cached = _RATIFIED_CACHE.get(key)
+    if cached is None:
+        try:
+            with open(target, "rb") as fh:
+                cached = json.load(fh)
+        except (OSError, ValueError):
+            cached = {}
+        _RATIFIED_CACHE[key] = cached
+    return cached if isinstance(cached, dict) else {}
+
+
+def ratified_patterns(
+    key: str,
+    declared: Iterable[str],
+    repo_root: Path | None = None,
+    path: Path | None = None,
+) -> tuple[list[str], list[str]]:
+    """Split declared patterns into (effective, unratified) for this repo.
+
+    Effective is the intersection with the central list, so a pattern present
+    in only one of the two places grants nothing. Unratified is returned rather
+    than dropped: a declaration that quietly stops working is the silent pass
+    this mechanism exists to prevent, so the caller reports it.
+
+    An absent or unreadable contract ratifies nothing, which fails closed.
+    """
+    repos = load_ratification(path).get("repos")
+    entry = repos.get(current_repo_name(repo_root)) if isinstance(repos, dict) else None
+    allowed = entry.get(key) if isinstance(entry, dict) else None
+    allowed_set = set(allowed) if isinstance(allowed, list) else set()
+    effective: list[str] = []
+    unratified: list[str] = []
+    for pattern in declared:
+        (effective if pattern in allowed_set else unratified).append(pattern)
+    return effective, unratified
