@@ -12,10 +12,10 @@ of truth for the shape.
 
 Keeping this module pure (it never calls the network itself) lets the caller
 supply repo metadata however it likes. The canonical source is Forgejo, whose
-`repo view --json` returns both the description and the topics array in one
+`repo get` returns both the description and the topics array in one
 payload. The CLI reads that JSON from stdin:
 
-    aosguard ops forgejo repo view --repo coilyco-bridge/<name> --json \
+    aosguard ops forgejo repo get <owner> <name> \
         | python -m agentic_os.generators.generate_repo_pointer_skill <name> --from-json - --repo-root <repo>
 
 `--from-json` also accepts the GitHub `gh repo view --json
