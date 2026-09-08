@@ -1,60 +1,60 @@
 # Documentation size bands
 
 A repo declares one band and gets its caps: lines and chars per Markdown file,
-how many `docs/*.md` reference pages it may carry, and the roomier pair for
-`guides/*.md` narrative walkthroughs.
+how many `docs/*.md` pages it carries, and the roomier pair for `guides/*.md`.
 
 | band | lines | chars | docs | guide lines | guide chars |
 | --- | --- | --- | --- | --- | --- |
+| `micro` | 40 | 3,000 | 5 | 80 | 6,000 |
 | `small` | 40 | 3,000 | 20 | 80 | 6,000 |
 | `large` | 120 | 8,000 | 40 | 240 | 16,000 |
+
+`micro` shares small's per-file caps and cuts the count to 5, for a repo whose
+real content lives elsewhere, usually in skills.
 
 ```toml
 [tool.agentic-os.documentation-layout]
 band = "small"
 ```
 
-Every repo declares, small included. There is no default to fall into: an
-undeclared repo and a deliberately small one would otherwise be the same file,
-and only one has had the decision made. A repo outgrowing `small` should hit a
-cap and argue for `large`, not find out it was never on a band. A typo fails the
-same way a missing declaration does. Non-Python repos use `.agentic-os.toml`.
+Every repo declares. An undeclared repo and a deliberately small one would
+otherwise be the same file, and only one had the decision made. A typo fails
+like a missing declaration. Non-Python repos use `.agentic-os.toml`.
+
+**The declaration is a request, not the decision.** A band applies only where it
+matches the repo's entry in the policy file, copied by hand into both repos, so a
+repo outgrowing `small` argues there rather than raising its own caps.
+Disagreement falls it back to `small`:
+[ratifying a band or an exclusion](../guides/ratifying-an-exclusion.md).
 
 ## guides/ is the narrative shelf
 
-`docs/` answers *how does X work*, capped short and flat so the set stays
-scannable. `guides/` answers *how do I do Y, end to end*, where the value is the
-sequence, the worked example and the failure modes, none of which survive being
-cut to reference length. A guide takes twice its band's per-doc caps, so a band
-move carries them. The two shelves count separately: a repo at its `docs/` cap
-can still add a guide, the case that forced the type. Opt in by creating the
-directory, and cross-link out as `../docs/<name>.md`: `dead-cross-links`
-resolves a relative link against the file it sits in. There is no count cap:
-guide count tracks what a repo ships rather than what it invented, and the old
-one named a fold-into-`docs/` fix a full reference shelf blocks.
+`docs/` answers **how does X work**, capped short and flat. `guides/` answers
+**how do I do Y, end to end**, where the sequence, the worked example and the
+failure modes do not survive being cut to reference length. A guide takes twice
+its band's per-doc caps, the shelves count separately, and a guide cross-links
+out as `../docs/<name>.md`. There is no guide count cap, which is why **opening
+a shelf is ratified rather than a mkdir**: an uncapped destination is where
+content goes when it fits nowhere else. Two repos carry one today.
 
 ## Why a count cap exists at all
 
-A per-doc size cap does not bound a docs folder, it reshapes it. A repo that
-caps length and not count answers every over-long doc by splitting it, and the
-folder grows without any single file failing. `sirens-echo` was the proof: 156
-docs, median 2,935 chars, largest 3,989 against a 4,000 cap, and unreadable.
+A per-doc size cap does not bound a docs folder, it reshapes it: a repo that
+caps length and not count answers every over-long doc by splitting it.
+`sirens-echo` was the proof, at 156 docs, none over a 4,000-char cap, unreadable.
 
 ## Why lines bind before chars
 
-Measured across the fleet, Markdown here runs about 49 characters per line. So
-40 lines is roughly 1,960 characters and 120 lines is roughly 5,880. The char
-cap sits above both on purpose: it is the backstop that catches a doc dense with
-tables or code, not the everyday constraint. One set near the line cap's natural
-size would fire constantly on prose; one far above would never fire at all.
+Markdown here runs about 49 characters per line, so 40 lines is roughly 1,960
+characters and 120 lines roughly 5,880. The char cap sits above both as the
+backstop for a doc dense with tables or code, not the everyday constraint.
 
 ## The two caps multiply
 
 Count times lines is a total documentation budget for `docs/`, and it is the
 number worth arguing about rather than either cap alone: `small` is 20 x 40 =
-800 lines, `large` is 40 x 120 = 4,800. A repo cannot escape it by trading one
-cap against the other. Merging two docs to clear the count spends the line cap,
-and splitting one to clear the line cap spends the count.
+800 lines, `large` is 40 x 120 = 4,800. Merging two docs to clear the count
+spends the line cap, and splitting one to clear the line cap spends the count.
 
 ## No per-file escape
 
@@ -100,9 +100,9 @@ carve-outs are the sections above plus these:
 
 - **Gitignored paths and `SKIP_DIR_NAMES`** - never scanned
   ([why](build-output-is-not-content.md)).
-- **`excludes` and `size_excludes`** - requests rather than grants. A pattern
+- **`band`, `excludes` and `size_excludes`** - requests rather than grants. A pattern
   applies only when it appears both in the repo's own config and in this repo's
-  `agentic_os/documentation_exclusions.json`, and an unratified local pattern
+  `agentic_os/documentation_policy.yaml`, and an unratified local pattern
   fails the hook by name rather than silently not applying. `excludes` reaches
   placement and flatness only, never either size cap. `vendored` is not
   ratified, since it asserts provenance rather than asking for an exemption.

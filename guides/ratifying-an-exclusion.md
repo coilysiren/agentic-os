@@ -1,4 +1,4 @@
-# Ratifying a documentation exclusion
+# Ratifying a band or an exclusion
 
 Adding an exclusion to `documentation-layout` takes two pull requests in two
 repositories, a hook release, and a pin bump. Removing one takes a single pull
@@ -19,7 +19,7 @@ weeks, and by then covered a repo's own `docs/` shelf and two bare file paths,
 which is the per-file escape #1108 had removed by name. No single change in
 that sequence looked wrong from inside the repo making it.
 
-So the grant moved here, to `agentic_os/documentation_exclusions.json`, and the
+So the grant moved here, to `agentic_os/documentation_policy.yaml`, and the
 repo-local declaration stayed. **A pattern takes effect only when it appears in
 both.** Neither half is sufficient, and that is the whole mechanism.
 
@@ -41,7 +41,7 @@ list shrinking without anyone running a campaign.
    a bad trade only when the content that overflows is the part a reader came
    for. If it is, name that in the reason.
 2. **Open the agentic-os pull request.** Add or extend the repo's entry in
-   `agentic_os/documentation_exclusions.json`. Every entry carries a `reason`
+   `agentic_os/documentation_policy.yaml`. Every entry carries a `reason`
    string, and the test suite fails an entry with an empty one. Write what the
    content is and why the shape the caps assume does not describe it. "Over the
    cap" is not a reason, it is the symptom.
@@ -66,7 +66,7 @@ It fails the hook. It does not quietly stop working.
 
 ```
 FAIL: size_excludes pattern 'services/**' is not ratified for this repo. Add it
-to agentic_os/documentation_exclusions.json in agentic-os with a written
+to agentic_os/documentation_policy.yaml in agentic-os with a written
 reason, release the hook, and bump this repo's pin. Until then it grants
 nothing.
 ```
@@ -84,7 +84,27 @@ A missing, unreadable, or malformed contract ratifies nothing. It never becomes
 a blanket grant. If you have deleted the JSON and every repo went red, that is
 the intended direction of failure.
 
-## The two keys are ratified separately
+## The band is ratified the same way
+
+`band` is a single value rather than a list, so ratification is agreement
+rather than intersection: the repo declares one, the registry names one, and
+the caps apply only when they match. A disagreement falls the repo back to
+`small` and reports both values, so a repo cannot widen its own caps by editing
+one line of its own config.
+
+## The policy lives in two repos, copied by hand
+
+`agentic-os/agentic_os/documentation_policy.yaml` and
+`agentic-os-kai/data/documentation-policy.yaml` are byte-identical, and the
+linter runs in both. Any difference fails, naming the file.
+
+**No script writes either copy.** That is the point rather than an oversight.
+Raising a limit takes two hand edits in two repos in two pull requests, and
+doing one without the other turns both repos red instead of passing quietly. A
+sync script would collapse that back into one edit, which is the shape this
+mechanism exists to prevent.
+
+## The two exclusion keys are ratified separately
 
 `excludes` governs placement and flatness. `size_excludes` answers the size
 caps. Ratifying one never grants the other, which is the distinction #1108 drew

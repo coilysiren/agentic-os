@@ -6,6 +6,8 @@ does not own. See sirens-echo#800 and docs/build-output-is-not-content.md.
 """
 from __future__ import annotations
 
+import yaml
+
 import subprocess
 from pathlib import Path
 
@@ -68,6 +70,15 @@ def _run_links(monkeypatch: pytest.MonkeyPatch, root: Path) -> int:
 def _run_layout(monkeypatch: pytest.MonkeyPatch, root: Path) -> int:
     monkeypatch.setattr(cdocs, "REPO_ROOT", root)
     monkeypatch.setattr(config, "REPO_ROOT", root)
+    # Ratify the fixture's own band: this file tests the tree walk, not the
+    # band gate, which carries its own tests.
+    contract = root / "_ratified_fixture.yaml"
+    declared = config.get_str_option(cdocs.HOOK_ID, "band", "", root)
+    contract.write_text(
+        yaml.safe_dump({"repos": {root.name: {"band": declared}}}), encoding="utf-8"
+    )
+    monkeypatch.setattr(config, "_RATIFIED_PATH", contract)
+    config._RATIFIED_CACHE.clear()
     return max(cdocs.main_placement(), cdocs.main_size())
 
 

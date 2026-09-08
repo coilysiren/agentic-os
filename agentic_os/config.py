@@ -29,7 +29,6 @@ without being told. See docs/build-output-is-not-content.md.
 """
 from __future__ import annotations
 
-import json
 import os
 import re
 import subprocess
@@ -347,8 +346,13 @@ def is_build_output(rel_path: Path | str, repo_root: Path | None = None) -> bool
 # Central ratification of documentation exclusions, so the escape hatch does not
 # live in the repo under pressure. See guides/ratifying-an-exclusion.md.
 
-_RATIFIED_PATH = Path(__file__).with_name("documentation_exclusions.json")
+_RATIFIED_PATH = Path(__file__).with_name("documentation_policy.yaml")
 _RATIFIED_CACHE: dict[str, object] = {}
+
+
+def shipped_policy_path() -> Path:
+    """Where the enforced policy lives inside this package."""
+    return _RATIFIED_PATH
 
 
 def current_repo_name(repo_root: Path | None = None) -> str:
@@ -388,10 +392,14 @@ def load_ratification(path: Path | None = None) -> dict:
     key = str(target)
     cached = _RATIFIED_CACHE.get(key)
     if cached is None:
+        # Imported here, not at module scope: config.py is the shared base every
+        # hook imports, and not every hook environment installs PyYAML.
+        import yaml
+
         try:
             with open(target, "rb") as fh:
-                cached = json.load(fh)
-        except (OSError, ValueError):
+                cached = yaml.safe_load(fh)
+        except (OSError, yaml.YAMLError):
             cached = {}
         _RATIFIED_CACHE[key] = cached
     return cached if isinstance(cached, dict) else {}
@@ -421,3 +429,18 @@ def ratified_patterns(
     for pattern in declared:
         (effective if pattern in allowed_set else unratified).append(pattern)
     return effective, unratified
+
+
+def ratified_band(repo_root: Path | None = None, path: Path | None = None) -> str:
+    """The band this repo is ratified for, or "" when it has no entry."""
+    repos = load_ratification(path).get("repos")
+    entry = repos.get(current_repo_name(repo_root)) if isinstance(repos, dict) else None
+    value = entry.get("band") if isinstance(entry, dict) else None
+    return value if isinstance(value, str) else ""
+
+
+def ratified_guides(repo_root: Path | None = None, path: Path | None = None) -> bool:
+    """Whether this repo is ratified to author a `guides/` shelf at all."""
+    repos = load_ratification(path).get("repos")
+    entry = repos.get(current_repo_name(repo_root)) if isinstance(repos, dict) else None
+    return bool(entry.get("guides")) if isinstance(entry, dict) else False

@@ -14,6 +14,9 @@ Constants live in [`agentic_os/pre_commit/check_code_comments.py`](../agentic_os
 
 ## documentation-layout
 
+* **markdown lines (micro band)** - 40 - lines, blank ones included, where `band = "micro"` is declared.
+* **markdown chars (micro band)** - 3000 - characters where `band = "micro"` is declared.
+* **docs count (micro band)** - 5 - `docs/*.md` files where `band = "micro"` is declared, the cap that separates micro from small.
 * **markdown lines (small band)** - 40 - lines, blank ones included, where `band = "small"` is declared.
 * **markdown chars (small band)** - 3000 - characters where `band = "small"` is declared.
 * **docs count (small band)** - 20 - `docs/*.md` files where `band = "small"` is declared.

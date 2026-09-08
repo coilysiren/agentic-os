@@ -60,6 +60,25 @@ def _caps() -> list[tuple[str, str, str, str]]:
         ),
         (
             "documentation-layout",
+            "markdown lines (micro band)",
+            str(dl.BAND_CAPS["micro"][0]),
+            'lines, blank ones included, where `band = "micro"` is declared',
+        ),
+        (
+            "documentation-layout",
+            "markdown chars (micro band)",
+            str(dl.BAND_CAPS["micro"][1]),
+            'characters where `band = "micro"` is declared',
+        ),
+        (
+            "documentation-layout",
+            "docs count (micro band)",
+            str(dl.BAND_CAPS["micro"][2]),
+            '`docs/*.md` files where `band = "micro"` is declared, the cap that '
+            'separates micro from small',
+        ),
+        (
+            "documentation-layout",
             "markdown lines (small band)",
             str(dl.BAND_CAPS["small"][0]),
             'lines, blank ones included, where `band = "small"` is declared',

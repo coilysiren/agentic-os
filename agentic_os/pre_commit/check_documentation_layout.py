@@ -36,8 +36,8 @@ ships rather than how much narrative it invented, so a repo adding a seat or a
 target earns a guide with it, and a count cap there fails the repo while naming
 a fix (fold into docs/) that a full reference shelf makes impossible.
 
-The type is opt-in by directory: a repo with no guides/ is unaffected and
-needs no config. See docs/documentation-bands.md for the caps and the
+Which repos may open a guides/ shelf is ratified centrally, because it is the
+one destination with no count cap. See docs/documentation-bands.md for the caps and the
 derivation behind them.
 
 Module README.md shapes
@@ -129,7 +129,10 @@ from agentic_os.config import (
     is_excluded,
     load_excludes,
     load_str_list,
+    ratified_band,
+    ratified_guides,
     ratified_patterns,
+    shipped_policy_path,
 )
 from agentic_os.pre_commit.tree import should_skip
 
@@ -140,6 +143,7 @@ SIZE_HOOK_ID = "documentation-size"
 # Per-repo size bands: lines, chars, and docs count. Rationale and the
 # measured chars-per-line behind the pairs: docs/documentation-bands.md.
 BAND_CAPS = {
+    "micro": (40, 3_000, 5),
     "small": (40, 3_000, 20),
     "large": (120, 8_000, 40),
 }
@@ -235,7 +239,7 @@ def check_exclusion_ratification(key: str, repo_root: Path | None = None) -> lis
     _, unratified = ratified_patterns(key, declared, repo_root)
     return [
         f"{key} pattern {pattern!r} is not ratified for this repo. Add it to "
-        f"agentic_os/documentation_exclusions.json in agentic-os with a written "
+        f"agentic_os/documentation_policy.yaml in agentic-os with a written "
         f"reason, release the hook, and bump this repo's pin. Until then it "
         f"grants nothing."
         for pattern in unratified
@@ -350,6 +354,32 @@ def check_docs_flatness() -> list[str]:
 
 def check_guides_flatness() -> list[str]:
     return _check_flatness(GUIDES_DIRNAME)
+
+
+def check_guides_are_ratified() -> list[str]:
+    """The guides shelf is the one destination with no count cap.
+
+    That makes it where content goes when it fits nowhere else, so which repos
+    may open one is ratified rather than decided by whoever creates the
+    directory. See guides/ratifying-an-exclusion.md.
+    """
+    root = REPO_ROOT / GUIDES_DIRNAME
+    if not root.is_dir() or ratified_guides():
+        return []
+    present = sorted(
+        rel.as_posix()
+        for rel in (p.relative_to(REPO_ROOT) for p in root.glob("*.md"))
+        if not is_build_output(rel, REPO_ROOT)
+    )
+    if not present:
+        return []
+    return [
+        f"{name}: this repo is not ratified to author a guides/ shelf. It is "
+        f"the one destination with no count cap, so opening one takes an entry "
+        f"in agentic_os/documentation_policy.yaml, copied by hand into both "
+        f"repos, rather than a mkdir."
+        for name in present
+    ]
 
 
 def is_guide(rel: Path) -> bool:
@@ -552,9 +582,18 @@ def check_skill_flatness(repo_root: Path | None = None) -> list[str]:
 
 
 def band(repo_root: Path | None = None) -> str:
-    """Return the repo's declared band, or the tight one when it has none."""
+    """The band in force: the local declaration, only where central agrees.
+
+    A band that disagreed with the registry would let one repo widen its own
+    caps, which is the decision this registry moved out of the repo under
+    pressure. Disagreement falls back to the tight band and is reported by
+    `check_band_declaration`.
+    """
     declared = get_str_option(HOOK_ID, "band", "", repo_root)
-    return declared if declared in BAND_CAPS else UNDECLARED_BAND
+    if declared not in BAND_CAPS:
+        return UNDECLARED_BAND
+    central = ratified_band(repo_root)
+    return declared if declared == central else UNDECLARED_BAND
 
 
 def markdown_caps(repo_root: Path | None = None) -> tuple[int, int]:
@@ -573,8 +612,6 @@ def guide_caps(repo_root: Path | None = None) -> tuple[int, int]:
 
 def check_band_declaration() -> list[str]:
     declared = get_str_option(HOOK_ID, "band", "")
-    if declared in BAND_CAPS:
-        return []
     names = ", ".join(sorted(BAND_CAPS))
     if not declared:
         return [
@@ -583,7 +620,61 @@ def check_band_declaration() -> list[str]:
             f"[tool.agentic-os.{HOOK_ID}] in pyproject.toml, or under "
             f"[{HOOK_ID}] in .agentic-os.toml."
         ]
-    return [f'band = "{declared}" is not a band. Declare one of {names}.']
+    if declared not in BAND_CAPS:
+        return [f'band = "{declared}" is not a band. Declare one of {names}.']
+    central = ratified_band()
+    if not central:
+        return [
+            f'band = "{declared}" is not ratified: this repo has no entry in '
+            f"agentic_os/documentation_policy.yaml. Add it in "
+            f"agentic-os-kai/data/documentation-bands.yaml with a written "
+            f"reason, sync, release the hook, and bump this repo's pin."
+        ]
+    if central != declared:
+        return [
+            f'band = "{declared}" disagrees with the ratified band '
+            f'"{central}". Caps fall back to {UNDECLARED_BAND} until they '
+            f"match. Change the ratified band in "
+            f"agentic-os-kai/data/documentation-bands.yaml, or change this "
+            f"declaration back to \"{central}\"."
+        ]
+    return []
+
+
+POLICY_MIRROR_NAMES = ("documentation_policy.yaml", "documentation-policy.yaml")
+
+
+def check_policy_mirror() -> list[str]:
+    """Every copy of the policy in this repo must match the shipped one.
+
+    The copy is made by hand on purpose. A limit raised in one repo and not the
+    other is then a visible disagreement rather than a quiet edit, which is the
+    whole reason there are two copies and no script that writes them.
+    """
+    shipped = shipped_policy_path()
+    try:
+        want = shipped.read_bytes()
+    except OSError:
+        return [
+            f"the shipped policy is unreadable at {shipped}. Every band and "
+            f"exclusion falls back closed until it is restored."
+        ]
+    violations: list[str] = []
+    for path in sorted(REPO_ROOT.rglob("*.yaml")):
+        if path.name not in POLICY_MIRROR_NAMES:
+            continue
+        rel = path.relative_to(REPO_ROOT)
+        if should_skip(rel) or is_build_output(rel, REPO_ROOT):
+            continue
+        if path.resolve() == shipped.resolve():
+            continue
+        if path.read_bytes() != want:
+            violations.append(
+                f"{rel.as_posix()}: differs from the shipped policy. Copy it "
+                f"across by hand, in both repos, rather than editing one. The "
+                f"second copy exists so a raised limit cannot land quietly."
+            )
+    return violations
 
 
 def check_docs_count() -> list[str]:
@@ -727,6 +818,7 @@ def main_placement() -> int:
         PLACEMENT_HOOK_ID,
         check_docs_flatness()
         + check_guides_flatness()
+        + check_guides_are_ratified()
         + check_markdown_locations()
         + check_skill_flatness()
         + check_exclusion_ratification("excludes"),
@@ -742,7 +834,8 @@ def main_size() -> int:
         check_band_declaration()
         + check_docs_count()
         + check_markdown_sizes()
-        + check_exclusion_ratification("size_excludes"),
+        + check_exclusion_ratification("size_excludes")
+        + check_policy_mirror(),
     )
 
 

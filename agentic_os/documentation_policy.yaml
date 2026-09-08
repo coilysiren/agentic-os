@@ -1,0 +1,82 @@
+# Documentation-layout policy per repo: band, guides shelf, ratified exclusions.
+# Band authored in agentic-os-kai. Procedure: guides/ratifying-an-exclusion.md.
+
+repos:
+  agent-compose:
+    band: large
+    guides: true
+    excludes:
+    - testdata/contracts/**
+    - testdata/handmade-bundle/**
+    - seed/roster/data/**
+  agent-proxy:
+    band: large
+  agentic-os:
+    band: large
+    guides: true
+    excludes:
+    - SSM.md
+  agentic-os-hardware:
+    band: small
+  agentic-os-kai:
+    band: large
+    excludes:
+    - SSM.md
+    - data/**
+    - openclaw/**
+    - mcp-servers/**
+    - scripts/README.md
+    - docs/FEATURES.md
+    size_excludes:
+    - data/
+  agentic-os-xxx:
+    band: small
+  coilysiren:
+    band: micro # fundamentally a simple repo
+  deploy:
+    band: large
+  eco-app:
+    band: small
+  eco-mods:
+    band: small
+    excludes:
+    - mods/
+    - unity/
+    - unity-embedded/
+  eco-ops:
+    band: small
+  factorio-mods:
+    band: micro
+  factory-game-v3:
+    band: small
+  galaxy-gen:
+    band: small
+  housecast:
+    band: small
+    excludes:
+    - evaluations/**
+    size_excludes:
+    - evaluations/**
+  infrastructure:
+    band: large
+    excludes:
+    - eco-server/
+    - eco-server/**
+  lore:
+    band: micro # the actual content lives inside skills
+  sirens-echo:
+    band: large
+  steam-ops:
+    band: small
+  voice-corpus:
+    band: micro # the actual content lives inside skills
+  website:
+    band: large
+    excludes:
+    - drafts/**
+    - src/pages/**
+    - src/projects/**
+    size_excludes:
+    - drafts/
+    - src/pages/
+    - src/projects/

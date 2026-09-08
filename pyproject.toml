@@ -197,10 +197,11 @@ testpaths = ["tests"]
 include = ["agentic_os*"]
 
 [tool.setuptools.package-data]
-# Ship JSON contracts so an importing consumer, not just a source checkout,
-# can read them.
+# Ship the data contracts so an importing consumer, not just a source checkout,
+# can read them. A contract absent here fails closed at the consumer.
 agentic_os = [
     "agent_id_vectors.json",
+    "documentation_policy.yaml",
     "org_shortnames.json",
     "outbound_link_rules.json",
 ]

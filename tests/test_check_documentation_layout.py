@@ -5,7 +5,7 @@ not support material that legitimately sits beside SKILL.md.
 """
 from __future__ import annotations
 
-import json
+import yaml
 from pathlib import Path
 
 import agentic_os.config as config
@@ -31,10 +31,17 @@ def write(path: Path, text: str = "x\n") -> None:
 
 
 def _point_repo_root_at(tmp_path: Path, monkeypatch) -> None:
-    # Reaches both REPO_ROOT (the tree walk) and config.REPO_ROOT (the options
-    # and excludes a fixture repo declares in its own pyproject.toml).
+    # Reaches REPO_ROOT and config.REPO_ROOT, and ratifies the fixture's own
+    # band so cap tests exercise caps rather than the gate.
     monkeypatch.setattr(docs_layout, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(config, "REPO_ROOT", tmp_path)
+    declared = config.get_str_option(docs_layout.HOOK_ID, "band", "", tmp_path)
+    contract = tmp_path / "_ratified_fixture.yaml"
+    contract.write_text(
+        yaml.safe_dump({"repos": {tmp_path.name: {"band": declared}}}), encoding="utf-8"
+    )
+    monkeypatch.setattr(config, "_RATIFIED_PATH", contract)
+    config._RATIFIED_CACHE.clear()
 
 
 def test_features_rides_the_band_like_any_docs_page(tmp_path: Path, monkeypatch) -> None:
@@ -370,10 +377,7 @@ def test_docs_count_cap_fires_past_the_band(tmp_path: Path, monkeypatch) -> None
         write(tmp_path / "docs" / f"page-{i}.md", "# Page\n")
     _point_repo_root_at(tmp_path, monkeypatch)
     assert docs_layout.check_docs_count() != []
-    write(
-        tmp_path / "pyproject.toml",
-        '[tool.agentic-os.documentation-layout]\nband = "large"\n',
-    )
+    _set_band(tmp_path, "large")
     assert docs_layout.check_docs_count() == []
 
 
@@ -605,11 +609,24 @@ def test_the_combined_id_still_disables_both_halves(
 
 # guides/: the narrative shelf, separate from the docs/ reference shelf.
 
-def _large_band(tmp_path: Path) -> None:
+def _set_band(tmp_path: Path, band: str) -> None:
+    """Declare a band and ratify it, for a test that switches band mid-run.
+
+    `_point_repo_root_at` already pointed the contract at the fixture file, so
+    rewriting that file is enough.
+    """
     write(
         tmp_path / "pyproject.toml",
-        '[tool.agentic-os.documentation-layout]\nband = "large"\n',
+        f'[tool.agentic-os.documentation-layout]\nband = "{band}"\n',
     )
+    (tmp_path / "_ratified_fixture.yaml").write_text(
+        yaml.safe_dump({"repos": {tmp_path.name: {"band": band}}}), encoding="utf-8"
+    )
+    config._RATIFIED_CACHE.clear()
+
+
+def _large_band(tmp_path: Path) -> None:
+    _set_band(tmp_path, "large")
 
 
 def test_a_guide_is_an_allowed_location(tmp_path: Path, monkeypatch) -> None:
@@ -719,14 +736,14 @@ def test_an_oversize_guide_is_not_told_to_split_into_docs(
 
 
 # Central ratification: the local declaration is the request and the entry in
-# documentation_exclusions.json is the grant. Both, or the pattern grants nothing.
+# documentation_policy.yaml is the grant. Both, or the pattern grants nothing.
 
 
 def _ratify(tmp_path: Path, monkeypatch, **keys: list[str]) -> None:
     """Ratify patterns for a tmp repo, keyed by the slug it falls back to."""
-    contract = tmp_path / "ratified.json"
+    contract = tmp_path / "ratified.yaml"
     contract.write_text(
-        json.dumps({"repos": {tmp_path.name: keys}}), encoding="utf-8"
+        yaml.safe_dump({"repos": {tmp_path.name: keys}}), encoding="utf-8"
     )
     monkeypatch.setattr(config, "_RATIFIED_PATH", contract)
     config._RATIFIED_CACHE.clear()
@@ -754,7 +771,7 @@ def test_an_unratified_local_declaration_is_reported_not_dropped(
     violations = docs_layout.check_exclusion_ratification("size_excludes", tmp_path)
     assert len(violations) == 1
     assert "services/**" in violations[0]
-    assert "documentation_exclusions.json" in violations[0]
+    assert "documentation_policy.yaml" in violations[0]
 
 
 def test_ratified_and_declared_together_grant_the_exclusion(
@@ -799,7 +816,7 @@ def test_a_missing_contract_ratifies_nothing(tmp_path: Path, monkeypatch) -> Non
         "[tool.agentic-os.documentation-layout]\n"
         'excludes = ["services/**"]\n',
     )
-    monkeypatch.setattr(config, "_RATIFIED_PATH", tmp_path / "absent.json")
+    monkeypatch.setattr(config, "_RATIFIED_PATH", tmp_path / "absent.yaml")
     config._RATIFIED_CACHE.clear()
     assert docs_layout.placement_excludes(tmp_path) == []
 
@@ -810,6 +827,138 @@ def test_the_shipped_contract_parses_and_keys_every_entry_by_slug() -> None:
     assert repos, "the shipped contract must not be empty while repos declare"
     for slug, entry in repos.items():
         assert slug == slug.strip() and "/" not in slug
-        assert entry["reason"], f"{slug} carries no written reason"
-        assert isinstance(entry["excludes"], list)
-        assert isinstance(entry["size_excludes"], list)
+        assert entry["band"] in docs_layout.BAND_CAPS, slug
+        for key in ("excludes", "size_excludes"):
+            assert isinstance(entry.get(key, []), list), f"{slug}.{key}"
+
+
+# A band is ratified the same way an exclusion is: the local declaration is the
+# request, the registry entry is the grant, and disagreement falls back tight.
+
+
+def _ratify_band(tmp_path: Path, monkeypatch, band: str) -> None:
+    contract = tmp_path / "ratified.yaml"
+    contract.write_text(
+        yaml.safe_dump({"repos": {tmp_path.name: {"band": band}}}), encoding="utf-8"
+    )
+    monkeypatch.setattr(config, "_RATIFIED_PATH", contract)
+    config._RATIFIED_CACHE.clear()
+
+
+def test_a_band_agreeing_with_the_registry_applies(tmp_path, monkeypatch) -> None:
+    write(
+        tmp_path / "pyproject.toml",
+        '[tool.agentic-os.documentation-layout]\nband = "large"\n',
+    )
+    _ratify_band(tmp_path, monkeypatch, "large")
+    assert docs_layout.band(tmp_path) == "large"
+
+
+def test_a_band_disagreeing_with_the_registry_falls_back_tight(
+    tmp_path, monkeypatch
+) -> None:
+    # The whole point: a repo cannot widen its own caps by editing one line.
+    write(
+        tmp_path / "pyproject.toml",
+        '[tool.agentic-os.documentation-layout]\nband = "large"\n',
+    )
+    _ratify_band(tmp_path, monkeypatch, "small")
+    assert docs_layout.band(tmp_path) == docs_layout.UNDECLARED_BAND
+
+
+def test_an_unratified_band_falls_back_tight(tmp_path, monkeypatch) -> None:
+    write(
+        tmp_path / "pyproject.toml",
+        '[tool.agentic-os.documentation-layout]\nband = "large"\n',
+    )
+    monkeypatch.setattr(config, "_RATIFIED_PATH", tmp_path / "absent.yaml")
+    config._RATIFIED_CACHE.clear()
+    assert docs_layout.band(tmp_path) == docs_layout.UNDECLARED_BAND
+
+
+def test_the_shipped_policy_carries_a_band_for_every_repo() -> None:
+    for slug, entry in config.load_ratification()["repos"].items():
+        assert entry["band"] in docs_layout.BAND_CAPS, slug
+
+
+# The policy lives in two repos and is copied by hand. The mirror check is what
+# makes a limit raised in one of them and not the other impossible to miss.
+
+
+def _mirror_repo(tmp_path: Path, monkeypatch, shipped: str, mirror: str) -> None:
+    (tmp_path / "shipped.yaml").write_text(shipped, encoding="utf-8")
+    (tmp_path / "documentation-policy.yaml").write_text(mirror, encoding="utf-8")
+    monkeypatch.setattr(config, "_RATIFIED_PATH", tmp_path / "shipped.yaml")
+    monkeypatch.setattr(docs_layout, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(config, "REPO_ROOT", tmp_path)
+    config._RATIFIED_CACHE.clear()
+
+
+def test_a_matching_mirror_passes(tmp_path: Path, monkeypatch) -> None:
+    body = "repos:\n  a:\n    band: small\n"
+    _mirror_repo(tmp_path, monkeypatch, body, body)
+    assert docs_layout.check_policy_mirror() == []
+
+
+def test_a_diverged_mirror_is_a_violation(tmp_path: Path, monkeypatch) -> None:
+    _mirror_repo(
+        tmp_path,
+        monkeypatch,
+        "repos:\n  a:\n    band: small\n",
+        "repos:\n  a:\n    band: large\n",
+    )
+    violations = docs_layout.check_policy_mirror()
+    assert len(violations) == 1
+    assert "documentation-policy.yaml" in violations[0]
+
+
+def test_a_repo_with_no_mirror_is_untouched(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "shipped.yaml").write_text("repos: {}\n", encoding="utf-8")
+    monkeypatch.setattr(config, "_RATIFIED_PATH", tmp_path / "shipped.yaml")
+    monkeypatch.setattr(docs_layout, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(config, "REPO_ROOT", tmp_path)
+    assert docs_layout.check_policy_mirror() == []
+
+
+# The guides shelf carries no count cap, so it is where content lands when it
+# fits nowhere else. Which repos may open one is ratified, not decided by mkdir.
+
+
+def _guides_repo(tmp_path: Path, monkeypatch, ratified: bool) -> None:
+    write(tmp_path / "guides" / "walkthrough.md", "# Walkthrough\n")
+    entry = {"band": "small"}
+    if ratified:
+        entry["guides"] = True
+    contract = tmp_path / "ratified.yaml"
+    contract.write_text(
+        yaml.safe_dump({"repos": {tmp_path.name: entry}}), encoding="utf-8"
+    )
+    monkeypatch.setattr(config, "_RATIFIED_PATH", contract)
+    monkeypatch.setattr(docs_layout, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(config, "REPO_ROOT", tmp_path)
+    config._RATIFIED_CACHE.clear()
+
+
+def test_an_unratified_guides_shelf_is_a_violation(tmp_path: Path, monkeypatch) -> None:
+    _guides_repo(tmp_path, monkeypatch, ratified=False)
+    violations = docs_layout.check_guides_are_ratified()
+    assert len(violations) == 1
+    assert "guides/walkthrough.md" in violations[0]
+
+
+def test_a_ratified_guides_shelf_passes(tmp_path: Path, monkeypatch) -> None:
+    _guides_repo(tmp_path, monkeypatch, ratified=True)
+    assert docs_layout.check_guides_are_ratified() == []
+
+
+def test_a_repo_with_no_guides_dir_is_untouched(tmp_path: Path, monkeypatch) -> None:
+    # Opting out stays free: the gate fires on content, not on the mkdir.
+    monkeypatch.setattr(docs_layout, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(config, "REPO_ROOT", tmp_path)
+    assert docs_layout.check_guides_are_ratified() == []
+
+
+def test_every_repo_shipping_guides_is_ratified_for_them() -> None:
+    repos = config.load_ratification()["repos"]
+    assert repos["agentic-os"]["guides"] is True
+    assert repos["agent-compose"]["guides"] is True
