@@ -6,7 +6,7 @@ Every triage label is a `prefix/value` pair, and Forgejo treats a prefixed group
 | --- | --- | --- |
 | `priority/*` | yes | `P0` `P1` `P2` `P3` |
 | `autonomy/*` | yes | `headless` `live-collab` `async-consult` `epic` |
-| `role/*` | no | `platform` `sysadmin` `science` `frontend` `gamedev` `director` `advocate` `underwriter` `human` |
+| `role/*` | no | `platform` `sysadmin` `science` `frontend` `gamedev` `director` `advocate` `analyst` `human` |
 
 `role/*` is deliberately not exclusive, because one issue can legitimately need two seats. A decision with a landing carries both - the seat that rules and the seat that applies the result.
 

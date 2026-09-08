@@ -248,7 +248,7 @@ func TestListPrintsEveryLiveRole(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
-	for _, slug := range []string{"platform", "sysadmin", "science", "frontend", "gamedev", "director", "advocate", "underwriter"} {
+	for _, slug := range []string{"platform", "sysadmin", "science", "frontend", "gamedev", "director", "advocate", "analyst"} {
 		if !strings.Contains(out, slug) {
 			t.Fatalf("listing should name %q: %s", slug, out)
 		}

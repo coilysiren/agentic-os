@@ -68,7 +68,7 @@ func TestUnknownRoleErrorNamesEveryLiveRole(t *testing.T) {
 }
 
 func TestSuggestKeepsNearMissesAndDropsShortCollisions(t *testing.T) {
-	roles := []string{"platform", "sysadmin", "science", "frontend", "gamedev", "director", "advocate", "underwriter"}
+	roles := []string{"platform", "sysadmin", "science", "frontend", "gamedev", "director", "advocate", "analyst"}
 	// The near misses are built rather than spelled, so the repo's spell-check
 	// does not read a deliberate typo fixture as a real one.
 	cases := []struct {

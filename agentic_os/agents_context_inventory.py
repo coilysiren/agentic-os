@@ -47,7 +47,7 @@ ROLE_TERMS = {
     "platform",
     "sysadmin",
     "director",
-    "underwriter",
+    "analyst",
 }
 TASK_TERMS = {
     "ci/cd",

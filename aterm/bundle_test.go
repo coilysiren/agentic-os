@@ -559,14 +559,14 @@ func TestGeneratedLauncherCarriesNoVersionPinnedPath(t *testing.T) {
 }
 
 // A label the width of the column leaves no separator, so the slug runs into
-// the name it labels. `underwriter` at exactly 11 was the first to reach it.
+// the name it labels. Both inputs are synthetic: no live slug is long enough.
 func TestRenderBundlePlanSeparatesALongSlugFromItsName(t *testing.T) {
-	for _, role := range []string{"underwriter", "a-considerably-longer-slug"} {
+	for _, role := range []string{"long-enough", "a-considerably-longer-slug"} {
 		plan := bundlePlan{
 			Output: "/tmp",
 			Items: []bundleItem{{
 				Role: role,
-				Name: "Cassandra // AI Underwriter",
+				Name: "Cassandra // AI Risk Analyst",
 			}},
 		}
 		rendered := &strings.Builder{}
@@ -587,7 +587,7 @@ func TestRenderBundlePlanSeparatesALongSlugFromItsName(t *testing.T) {
 func TestRenderBundlePlanKeepsEveryLabelInOneColumn(t *testing.T) {
 	plan := bundlePlan{
 		Output: "/tmp",
-		Items:  []bundleItem{{Role: "underwriter", Name: "Cassandra // AI Underwriter"}},
+		Items:  []bundleItem{{Role: "long-enough", Name: "Cassandra // AI Risk Analyst"}},
 		Stale:  []string{"/tmp/Rex :: Retired.app"},
 	}
 	rendered := &strings.Builder{}
@@ -595,7 +595,7 @@ func TestRenderBundlePlanKeepsEveryLabelInOneColumn(t *testing.T) {
 		t.Fatalf("render: %v", err)
 	}
 	width := bundleLabelWidth(plan)
-	if width <= len("underwriter") {
+	if width <= len("long-enough") {
 		t.Fatalf("column %d cannot separate an 11-character slug", width)
 	}
 	for _, line := range strings.Split(strings.TrimSpace(rendered.String()), "\n")[1:] {

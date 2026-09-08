@@ -131,7 +131,7 @@ func xmlEscape(value string) string {
 }
 
 // Sized from the labels this plan renders: a fixed width equal to the longest
-// known slug leaves no separator, which `underwriter` at 11 exposed.
+// known slug leaves no separator, which the retired `underwriter` slug found.
 func bundleLabelWidth(plan bundlePlan) int {
 	labels := []string{"icon"}
 	for _, item := range plan.Items {

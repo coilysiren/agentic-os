@@ -13,5 +13,5 @@ roles:
     agent: claude
   advocate:
     agent: claude
-  underwriter:
+  analyst:
     agent: claude

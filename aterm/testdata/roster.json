@@ -339,11 +339,12 @@
       "background": "#2f1800"
     },
     {
-      "slug": "underwriter",
-      "display_name": "AI Underwriter",
-      "purpose": "Underwrite a company's claim that its high-risk AI system meets the Act, and stand behind the file that proves it.",
-      "skill": "role-underwriter",
-      "skill_source": "roster:core:role:underwriter",
+      "slug": "analyst",
+      "display_name": "AI Risk Analyst",
+      "purpose": "Assess whether an AI system is fit to ship, name the exclusions, and stand behind the file that proves it.",
+      "skill": "role-analyst",
+      "skill_source": "roster:core:role:analyst",
+      "archived": true,
       "skill_digest": "sha256:4cf07d1b4e0aa768f7398a86c251ca45c5bbe6d14866e555885fecb6af9a0027",
       "identity": {
         "name": "Cassandra",
