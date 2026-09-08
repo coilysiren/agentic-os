@@ -1,4 +1,0 @@
-interface:
-  display_name: "Kai Writing Voice"
-  short_description: "Write and edit in Kai's established voice"
-  default_prompt: "Use $writing-kai-voice to rewrite this in Kai's established voice."

@@ -26,7 +26,6 @@ roles {
         composed-skill "tooling-frontend-*"
         composed-skill "personal-preference-*"
         composed-skill "personal-preferences"
-        composed-skill "writing-*-voice"
     }
 
     role gamedev {
@@ -48,7 +47,6 @@ roles {
         composed-skill "tooling-tpm-*"
         composed-skill "tooling-issue-*"
         composed-skill "tooling-scout-*"
-        composed-skill "writing-voice-*"
         composed-skill "coding-shape-*"
         composed-skill "coding-core-*"
     }

@@ -8,9 +8,8 @@ Pick the prefix up front. The validator rejects unknown prefixes.
 * `ops-eng-sentry-*` - Sentry review playbooks.
 * `ops-investigation-*` - investigation playbooks and runbooks. Status-enforced. Required H2 sections enforced.
 * `gaming-eco-*` - Eco modding (investigation, scaffolding, source-auditing).
-* `writing-*` - prose / voice / issue authoring surface
-  (`writing-voice-guide-linter`, `tooling-issue-triage`, and the social
-  writing family).
+* `writing-*` - prose and issue authoring surface (`tooling-issue-triage` and
+  the social writing family). The voice family ships from voice-corpus.
 * `personality-*` - role-neutral presence, attention, tempo, and voice for agent-compose personality providers.
 * `home-*` - smart-home control at My House (hue, sonos, cast).
 * `tooling-*` - agent-ecosystem meta (the scout family,

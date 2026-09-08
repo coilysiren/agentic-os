@@ -49,11 +49,13 @@ composed layout and content. `documentation-layout`, `dead-cross-links`, and
 ## House taste in the public catalogue
 
 `.agents/composed/` carries a small set of sources describing coilyco's taste
-rather than a person's: `writing-kai-voice` and the `personal-preference-*`
-family. They are public because a consumer outside Kai's personal fleet needs
-them, the first being
+rather than a person's: the `personal-preference-*` family and the social
+writing family. They are public because a consumer outside Kai's personal fleet
+needs them, the first being
 [sirens-echo](https://forgejo.coilysiren.me/coilyco-gaming/sirens-echo), whose
-Discord agent composes a bundle and cannot reach a private catalogue.
+Discord agent reaches no private catalogue. **The voice family is the exception
+and left in 2026-09** for the private `coilyco-bridge/voice-corpus`, so Echo
+lost house style until `teable:coilyco-gaming/sirens-echo#7138` restores it.
 
 An organization can own a favorite colour, and owning one still does not answer
 for an agent: a composed agent's own favorite colour is the one on its identity
@@ -64,8 +66,6 @@ Sources that fail stay in `coilyco-bridge/agentic-os-kai`: the `kai-` family,
 including `personal-preference-social`, which shares a prefix with sources that
 qualify and still fails, because social accounts are a member's.
 
-`writing-kai-voice` keeps its name through promotion so existing `roles.kdl`
-selectors keep resolving, even though the name now understates its scope.
 Selection stays with each repository's own `roles.kdl`, and a consumer that
 must bound what it receives uses a request `source` with `declaration=` rather
 than `root=`.
